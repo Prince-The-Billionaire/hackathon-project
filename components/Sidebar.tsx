@@ -3,39 +3,40 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Globe, ShoppingBag, Ship, Package, Info, Settings } from "lucide-react";
+import { UserButton } from "@clerk/nextjs";
+import { useGeo } from "@/context/GeoContext";
+import { Globe, ShoppingBag, Ship, Package, Settings } from "lucide-react";
+// Import your custom flag component here. Adjust the path to match your project layout!
+import StoreFlagIcon from "@/components/StoreFlagIcon"; 
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { countryCode } = useGeo();
 
-  // Root-level file system paths matching your direct app directory structure
   const navItems = [
-    { href: "/", label: "Global Map", icon: Globe },
-    { href: "/marketplace", label: "Market Place", icon: ShoppingBag }, // Assuming home is your main marketplace hub
+    { href: "/dashboard", label: "Global Map", icon: Globe },
+    { href: "/marketplace", label: "Market Place", icon: ShoppingBag },
     { href: "/shipping", label: "Shipping", icon: Ship },
     { href: "/cargo", label: "Your Cargo", icon: Package },
-    { href: "/about", label: "About", icon: Info },
     { href: "/settings", label: "Settings", icon: Settings },
   ];
 
   return (
     <aside className="
-      /* Layout Defaults: Original White Glassmorphism and Z-Index */
+      /* Layout Defaults: Clean Glassmorphism Layer */
       fixed z-40 border border-white/40 bg-white/60 shadow-xl backdrop-blur-xl flex justify-between items-center transition-all duration-300
       
-      /* Mobile Layout: Fixed Bottom Bar */
-      bottom-4 left-4 right-4 h-16 rounded-xl px-2 flex-row
+      /* Mobile Layout: Snap to base view */
+      bottom-4 left-4 right-4 h-16 rounded-xl px-4 flex-row
       
-      /* Desktop Layout: Vertically Centered Left Sidebar */
-      md:bottom-auto md:left-5 md:right-auto md:top-1/2 md:-translate-y-1/2 md:w-16 md:min-h-[480px] md:max-h-[85vh] md:rounded-2xl md:p-2 md:flex-col
+      /* Desktop Layout: Optimized wrapping height */
+      md:bottom-auto md:left-5 md:right-auto md:top-[20%] md:w-16 md:h-auto md:max-h-[80vh] md:rounded-2xl md:p-3 md:flex-col md:gap-6
     ">
       
       {/* Navigation Menu Items Stack */}
-      <nav className="flex flex-row justify-between w-full items-center md:flex-col md:gap-2.5 md:my-auto">
+      <nav className="flex flex-row justify-between w-full items-center md:flex-col md:gap-3 flex-1 md:flex-none">
         {navItems.map((item) => {
           const IconComponent = item.icon;
-          
-          // Checks active status accurately for both the home domain root and sub-segments
           const isActive = pathname === item.href;
           
           return (
@@ -43,9 +44,7 @@ export default function Sidebar() {
               key={item.href}
               href={item.href}
               className={`
-                /* Layout base */
-                flex flex-col items-center justify-center rounded-lg transition-all duration-200 group flex-1 md:w-full
-                /* Adaptive padding adjustments based on bar sizing footprint */
+                flex flex-col items-center justify-center rounded-xl transition-all duration-200 group flex-1 md:w-full md:aspect-square
                 py-1 md:py-2
                 ${isActive
                   ? "bg-blue-600 text-white shadow-md shadow-blue-500/10"
@@ -62,10 +61,31 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* Wallet Node Country Indicator */}
-      <div className="hidden md:flex flex-col items-center pb-1 mt-2">
-        <div className="h-6 w-6 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-[9px] text-slate-600 font-bold shadow-sm">
-          NG
+      {/* Profile & Node Group Settings Section */}
+      <div className="flex flex-row items-center gap-3 pl-3 border-l border-slate-200/60 md:border-l-0 md:pl-0 md:pt-3 md:border-t md:border-slate-200/60 md:w-full md:flex-col md:gap-4">
+        
+        {/* Dynamic Country Node Flag Component */}
+        <div 
+          title={`Node Active Location: ${countryCode}`}
+          className="flex flex-col items-center justify-center transition-transform hover:scale-105"
+        >
+          {/* We pass the dynamic 2-letter code lowercase/uppercase depending on what your component prefers */}
+          <StoreFlagIcon countryCode={countryCode.toLowerCase()} />
+          <span className="text-[7px] font-bold text-slate-400 uppercase tracking-tighter mt-1 select-none">
+            {countryCode}
+          </span>
+        </div>
+
+        {/* Clerk User Action Hub */}
+        <div className="flex items-center justify-center transition-transform hover:scale-105 duration-200">
+          <UserButton 
+            afterSignOutUrl="/" 
+            appearance={{
+              elements: {
+                avatarBox: "h-7 w-7 md:h-8 md:w-8 border border-slate-200 shadow-sm"
+              }
+            }}
+          />
         </div>
       </div>
     </aside>

@@ -22,12 +22,30 @@ export interface CargoItem {
   };
 }
 
-interface CartState {
-  cargoOrders: CargoItem[];
-  addToCargo: (item: { id: string; name: string; bulkPrice: string; image: string }, quantity: number, storeName: string) => void;
+export interface ChatMessage {
+  id: string;
+  type: "sent" | "received" | "system";
+  text: string;
+  time: string;
+  isDocument?: boolean;
+  documentData?: {
+    itemName: string;
+    quantity: number;
+    totalValue: number;
+  };
 }
 
-// Pre-seeded initial data from your mock configurations
+interface CartState {
+  cargoOrders: CargoItem[];
+  chatMessages: ChatMessage[];
+  escrowBalance: number;
+  contractStatus: "negotiating" | "manifest_sent" | "escrow_locked";
+  addToCargo: (item: { id: string; name: string; bulkPrice: string; image: string }, quantity: number, storeName: string) => void;
+  sendChatMessage: (text: string, type?: "sent" | "received" | "system") => void;
+  generateExportDoc: (itemName: string, quantity: number, unitCost: number) => void;
+  confirmEscrowPayment: (amount: number) => void;
+}
+
 const INITIAL_CARGO: CargoItem[] = [
   {
     id: "WZ-441-TCAN",
@@ -73,11 +91,15 @@ const INITIAL_CARGO: CargoItem[] = [
 
 export const useCartStore = create<CartState>((set) => ({
   cargoOrders: INITIAL_CARGO,
+  chatMessages: [
+    { id: "msg-1", type: "received", text: "Hello! Let me know if you want to review the documentation parameters.", time: "10:14 AM" }
+  ],
+  escrowBalance: 0,
+  contractStatus: "negotiating",
+  
   addToCargo: (item, quantity, storeName) =>
     set((state) => {
-      // Parse numeric integer values out of pricing texts cleanly (e.g. "$120" or "₦45,000" -> 45000)
       const numericPrice = parseInt(item.bulkPrice.replace(/[^0-9]/g, "")) || 25000;
-      
       const newCargoUnit: CargoItem = {
         id: `WZ-${Math.floor(100 + Math.random() * 900)}-GEN`,
         itemName: `Shared Cargo: ${item.name} (${storeName} Allocation)`,
@@ -98,7 +120,48 @@ export const useCartStore = create<CartState>((set) => ({
           vatRate: 0.075,
         }
       };
-
       return { cargoOrders: [newCargoUnit, ...state.cargoOrders] };
     }),
+
+  sendChatMessage: (text, type = "sent") => set((state) => ({
+    chatMessages: [
+      ...state.chatMessages,
+      {
+        id: `msg-${Date.now()}`,
+        type,
+        text,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }
+    ]
+  })),
+
+  generateExportDoc: (itemName, quantity, unitCost) => set((state) => {
+    const totalValue = quantity * unitCost;
+    const docMessage: ChatMessage = {
+      id: `doc-${Date.now()}`,
+      type: "received",
+      text: `📄 Export Manifest Generated: ${itemName}`,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      isDocument: true,
+      documentData: { itemName, quantity, totalValue }
+    };
+    return {
+      chatMessages: [...state.chatMessages, docMessage],
+      contractStatus: "manifest_sent"
+    };
+  }),
+
+  confirmEscrowPayment: (amount) => set((state) => ({
+    escrowBalance: state.escrowBalance + amount,
+    contractStatus: "escrow_locked",
+    chatMessages: [
+      ...state.chatMessages,
+      {
+        id: `sys-${Date.now()}`,
+        type: "system",
+        text: `🔒 Escrow Confirmed: ₦${amount.toLocaleString()} locked securely.`,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }
+    ]
+  }))
 }));

@@ -1,42 +1,59 @@
+/**
+ * ============================================================================
+ * MAIN NEGOTIATIONS AND LOGISTICS HUB FRONTEND ASSEMBLY
+ * * Features:
+ * - Fluid UI grid layout with support for responsive breakdown elements
+ * - Completely decouples active cruiser datasets to match refined system scopes
+ * - Live state engine handling complex instant response text workflows
+ * ============================================================================
+ */
+
 "use client";
+
 import React, { useState, useMemo } from "react";
 import Image from "next/image";
-import Sidebar from "@/components/Sidebar";
-import { 
-  Ship, 
-  Search, 
-  MessageSquare, 
-  Anchor, 
-  ShieldCheck, 
-  ShieldAlert, 
-  Gauge, 
-  Hourglass, 
-  HelpCircle, 
-  CheckCircle2, 
-  ExternalLink,
-  Send
-} from "lucide-react";
-import * as Flags from "country-flag-icons/react/3x2";
-import { SEVEN_CARGO_VESSELS, MOCK_GLOBAL_MERCHANTS } from "@/data/shippingData";
+import Sidebar from "../../components/Sidebar";
+import { Search, ShieldCheck, Globe, Building2, Briefcase } from "lucide-react";
+import { MOCK_GLOBAL_MERCHANTS } from "../../data/shippingData";
+import MerchantCard from "../../components/MerchantCard";
+import NegotiationChatModal from "../../components/NegotiateChatModal";
 
-function MerchantFlag({ countryCode }: { countryCode: string }) {
-  const FlagComponent = Flags[countryCode.toUpperCase() as keyof typeof Flags];
-  if (!FlagComponent) return <span className="text-xs">{countryCode}</span>;
-  return <FlagComponent className="w-4 h-3 object-cover rounded-[1px] shadow-sm inline-block" />;
+type IndustryFilter = "All" | "Electronics" | "Textiles" | "Heavy Machinery" | "Consumer Goods" | "Food Logistics";
+
+interface ChatMessage {
+  id: string | number;
+  type: "sent" | "received" | "system";
+  text: string;
+  time: string;
 }
 
 export default function ShippingLogisticsPage() {
   const [merchantQuery, setMerchantQuery] = useState("");
+  const [selectedIndustry, setSelectedIndustry] = useState<IndustryFilter>("All");
   const [selectedMerchant, setSelectedMerchant] = useState<any>(null);
   const [message, setMessage] = useState("");
-  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+
+  const industryTabs: IndustryFilter[] = ["All", "Electronics", "Textiles", "Heavy Machinery", "Consumer Goods", "Food Logistics"];
+
+  const processedMerchants = useMemo(() => {
+    return MOCK_GLOBAL_MERCHANTS.map((m, idx) => {
+      const assignedIndustries: IndustryFilter[] = ["Electronics", "Textiles", "Heavy Machinery", "Consumer Goods", "Food Logistics"];
+      return {
+        ...m,
+        industry: assignedIndustries[idx % assignedIndustries.length]
+      } as typeof m & { industry: IndustryFilter };
+    });
+  }, []);
 
   const filteredMerchants = useMemo(() => {
-    return MOCK_GLOBAL_MERCHANTS.filter((merchant) => {
-      const matchText = merchant.name.toLowerCase() + merchant.targetImports.join(" ").toLowerCase() + merchant.country.toLowerCase();
-      return matchText.includes(merchantQuery.toLowerCase());
+    return processedMerchants.filter((merchant) => {
+      const matchText = `${merchant.name} ${merchant.targetImports.join(" ")} ${merchant.country}`.toLowerCase();
+      const matchesSearch = matchText.includes(merchantQuery.toLowerCase());
+      const matchesIndustry = selectedIndustry === "All" || merchant.industry === selectedIndustry;
+      return matchesSearch && matchesIndustry;
     });
-  }, [merchantQuery]);
+  }, [processedMerchants, merchantQuery, selectedIndustry]);
 
   const openNegotiateModal = (merchant: any) => {
     setSelectedMerchant(merchant);
@@ -45,305 +62,161 @@ export default function ShippingLogisticsPage() {
       {
         id: 1,
         type: "received",
-        text: `Hello! We're interested in your shipping services for ${merchant.targetImports[0] || 'goods'}.`,
-        time: "10:32"
-      },
-      {
-        id: 2,
-        type: "sent",
-        text: "Hi, happy to help! What volume and route are you looking at?",
-        time: "10:34"
+        text: `Greetings from the trade desk at ${merchant.name}. `,
+        time: "10:32 AM"
       }
     ]);
   };
 
-  const closeModal = () => {
-    setSelectedMerchant(null);
-    setMessage("");
-    setChatMessages([]);
-  };
+  const handleSend = (customText?: string) => {
+    const activeText = customText || message;
+    if (!activeText.trim()) return;
 
-  const handleSend = () => {
-    if (!message.trim()) return;
-
-    const newMsg = {
+    const timeString = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const userMsg: ChatMessage = {
       id: Date.now(),
       type: "sent",
-      text: message,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      text: activeText,
+      time: timeString
     };
 
-    setChatMessages(prev => [...prev, newMsg]);
-    setMessage("");
+    setChatMessages((prev) => [...prev, userMsg]);
+    if (!customText) setMessage("");
 
-    // Simulate reply after 1 second
     setTimeout(() => {
-      const replies = [
-        "Thanks for your message. I'll check our current rates and get back to you shortly.",
-        "Perfect. We can offer competitive rates for that route.",
-        "Noted. Our team will prepare a detailed quote for you."
+      const answers = [
+        "That aligns perfectly with our standard handling procedures. Let us execute a formal digital DDP manifest review via our local export desk agents.",
+        "Understood. Our supply chain units require roughly 15 minutes to aggregate custom freight variables across that industrial lane.",
+        "We can lock those specific freight terms. Let us transmit the full breakdown to your corporate logistics point-of-contact."
       ];
-      
-      const replyMsg = {
+
+      const systemReply: ChatMessage = {
         id: Date.now() + 1,
         type: "received",
-        text: replies[Math.floor(Math.random() * replies.length)],
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        text: answers[Math.floor(Math.random() * answers.length)],
+        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
       };
-      
-      setChatMessages(prev => [...prev, replyMsg]);
-    }, 1200);
+
+      setChatMessages((prev) => [...prev, systemReply]);
+    }, 1100);
+  };
+
+  const handleRequestEmail = () => {
+    const systemNotification: ChatMessage = {
+      id: "sys-" + Date.now(),
+      type: "system",
+      text: "🔒 Systematic Link Requested: Transmitting secure enterprise profile forms...",
+      time: ""
+    };
+    setChatMessages((prev) => [...prev, systemNotification]);
+
+    setTimeout(() => {
+      const formalEmailRequest: ChatMessage = {
+        id: Date.now() + 2,
+        type: "received",
+        text: `To complete our off-platform enterprise validation, please forward your standard delivery documentation directly to trade-desk@${selectedMerchant?.name.toLowerCase().replace(/[^a-z]/g, "") || "merchant"}.com.\n\nOur trade desk specialists will verify and respond with signed digital clearances.`,
+        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+      };
+      setChatMessages((prev) => [...prev, formalEmailRequest]);
+    }, 900);
+  };
+
+  const handleTriggerAutomation = (type: "followUp" | "quoteRequest") => {
+    if (type === "followUp") {
+      handleSend("Hi there, just wanted to follow up on our discussion regarding cargo capacity and required customs clearance protocols. Looking forward to your updates.");
+    } else if (type === "quoteRequest") {
+      handleSend(`We are interested in formalizing pricing structures. Please furnish an itemized DDP commercial quote representing our requested lines: ${selectedMerchant?.targetImports.join(", ")}.`);
+    }
   };
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-slate-50 text-slate-800 antialiased flex flex-col md:flex-row">
-      
-      {/* BRANDING */}
-      <div className="absolute top-4 left-4 z-30 flex flex-col items-center gap-2 bg-white/75 rounded-full backdrop-blur-md border border-slate-200/50 p-1 shadow-sm md:top-5 md:left-6">
-        <div className="relative h-16 w-16 rounded-full object-contain">
-          <Image src="/zeon-logo.jpg" alt="Zeon Systems Logo" fill sizes="36px" priority className="object-contain rounded-full" />
+    <div className="relative w-full min-h-screen bg-slate-50 text-slate-800 antialiased flex flex-col md:flex-row">
+      <div className="absolute top-4 left-4 z-30 flex items-center gap-2 bg-white/80 rounded-xl backdrop-blur-md border border-slate-200/60 p-1.5 shadow-sm md:top-5 md:left-6">
+        <div className="relative h-10 w-10">
+          <Image src="/zeon-logo.jpg" alt="Zeon Systems Logo" fill priority className="object-contain rounded-lg" />
         </div>
       </div>
 
       <Sidebar />
 
-      {/* MAIN CONTENT */}
-      <main className="w-full h-full pt-20 pb-24 px-4 md:pl-28 md:pt-6 md:pb-6 md:pr-6 relative z-10 flex-1 overflow-y-auto scrollbar-thin">
-        <div className="w-full h-auto space-y-6">
+      <main className="flex-1 w-full p-4 pt-20 md:p-8 md:pl-28 overflow-y-auto">
+        <div className="max-w-7xl mx-auto space-y-6">
           
-          <div className="border-b border-slate-200 pb-5">
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 mt-1">
-              Cruisers We Work With
-            </h1>
-            <p className="text-xs text-slate-500 mt-0.5 max-w-2xl">
-              Reliable freight partners with verified capacity and active routes
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Main Title Banner Section */}
+          <div className=" pb-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900">
+                Negotiate deals with various merchants worldwide
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-2xl">
+                Connect directly with commercial corporate buyers, negotiate global supply lines, and manage end-to-end freight distributions.
+              </p>
+            </div>
             
-            {/* LEFT COLUMN - Compact Cruisers */}
-            <div className="lg:col-span-8 space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                  <Ship className="h-3.5 w-3.5 text-blue-500" />
-                  Active Cruisers ({SEVEN_CARGO_VESSELS.length})
-                </h3>
-              </div>
+          </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {SEVEN_CARGO_VESSELS.map((vessel) => (
-                  <div
-                    key={vessel.id}
-                    className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm hover:shadow-md hover:border-slate-300 transition-all p-5"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="w-14 h-40 flex-shrink-0 rounded-2xl overflow-hidden border border-slate-100">
-                        <img
-                          src={vessel.imageUrl}
-                          alt={vessel.name}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <span className="font-bold text-lg tracking-tight text-slate-900">{vessel.company}</span>
-                            <p className="text-slate-600 text-sm mt-0.5">{vessel.name}</p>
-                          </div>
-
-                          <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1 rounded-2xl text-xs font-semibold">
-                            <span className={`h-2.5 w-2.5 rounded-full ${vessel.isActive ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`} />
-                            {vessel.isActive ? "ACTIVE" : "DRY DOCK"}
-                          </div>
-                        </div>
-
-                        <div className="mt-5 grid grid-cols-2 gap-4 text-sm">
-                          <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 bg-blue-50 rounded-lg flex items-center justify-center">
-                              <Ship className="h-4 w-4 text-blue-600" />
-                            </div>
-                            <div>
-                              <span className="text-xs text-slate-400 block">Capacity</span>
-                              <span className="font-semibold text-slate-700">{vessel.capacityTEU.toLocaleString()} TEU</span>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 bg-blue-50 rounded-lg flex items-center justify-center">
-                              <Gauge className="h-4 w-4 text-blue-600" />
-                            </div>
-                            <div>
-                              <span className="text-xs text-slate-400 block">Speed</span>
-                              <span className="font-semibold text-slate-700">{vessel.avgSpeedKnots} knots</span>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 bg-amber-50 rounded-lg flex items-center justify-center">
-                              <Hourglass className="h-4 w-4 text-amber-600" />
-                            </div>
-                            <div>
-                              <span className="text-xs text-slate-400 block">Age</span>
-                              <span className="font-semibold text-slate-700">{vessel.ageYears} years</span>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 bg-emerald-50 rounded-lg flex items-center justify-center">
-                              {vessel.hasInsurance ? (
-                                <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                              ) : (
-                                <ShieldAlert className="h-4 w-4 text-amber-600" />
-                              )}
-                            </div>
-                            <div>
-                              <span className="text-xs text-slate-400 block">Insurance</span>
-                              <span className={`font-semibold ${vessel.hasInsurance ? "text-emerald-600" : "text-amber-600"}`}>
-                                {vessel.hasInsurance ? "Covered" : "Pending"}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+          {/* Interactive Filtering Navigation Bar Component Layout */}
+          <div className="flex flex-col gap-4 bg-slate-100 p-4 rounded-2xl border border-slate-200/80 lg:flex-row lg:items-center justify-between shadow-sm">
+            <div className="relative flex-1">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search global merchants by name, country, or cargo keywords..."
+                value={merchantQuery}
+                onChange={(e) => setMerchantQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 text-slate-800 rounded-xl text-xs sm:text-sm focus:outline-none focus:border-indigo-500 shadow-inner"
+              />
             </div>
-
-            {/* RIGHT COLUMN - Export Desk */}
-            <div className="lg:col-span-4 lg:sticky lg:top-6 self-start">
-              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <h3 className="font-bold text-sm tracking-wider uppercase text-slate-500">Export Desk</h3>
-                </div>
-                <p className="text-sm text-slate-600">Communicate directly with verified merchants</p>
-
-                <div className="relative mt-5">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Search merchants..."
-                    value={merchantQuery}
-                    onChange={(e) => setMerchantQuery(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-10 pr-4 text-sm focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-
-                <div className="mt-5 space-y-3 max-h-[520px] overflow-y-auto pr-2 scrollbar-thin">
-                  {filteredMerchants.map((merchant) => (
-                    <div
-                      key={merchant.id}
-                      className="border border-slate-100 hover:border-slate-300 rounded-xl p-4 transition-all bg-slate-50/70"
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h4 className="font-bold text-slate-800">{merchant.name}</h4>
-                          <p className="text-xs text-slate-500">Rep: {merchant.contactPerson}</p>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <MerchantFlag countryCode={merchant.flagCode} />
-                          <span className="text-xs font-medium text-slate-500">{merchant.flagCode}</span>
-                        </div>
-                      </div>
-
-                      <div className="mt-3">
-                        <span className="text-[10px] uppercase tracking-widest text-slate-400">Wants to import:</span>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {merchant.targetImports.map((item, i) => (
-                            <span key={i} className="text-[10px] bg-white px-2 py-0.5 rounded-md border border-slate-200">{item}</span>
-                          ))}
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={() => openNegotiateModal(merchant)}
-                        className="mt-4 w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-2.5 rounded-xl font-semibold text-sm hover:brightness-105 transition"
-                      >
-                        <MessageSquare className="h-4 w-4" />
-                        Negotiate Deal
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-2 lg:pb-0 scrollbar-none max-w-full">
+              {industryTabs.map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setSelectedIndustry(tab)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${
+                    selectedIndustry === tab
+                      ? "bg-slate-900 text-white shadow-sm"
+                      : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
             </div>
           </div>
+
+          
+
+          {/* Dynamic Merchant Catalog System Matrix Display */}
+          {filteredMerchants.length === 0 ? (
+            <div className="text-center py-16 border-2 border-dashed border-slate-200 bg-white rounded-2xl text-slate-400 font-medium text-xs sm:text-sm shadow-sm">
+              No merchants found matching the current filtration parameters.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+              {filteredMerchants.map((merchant) => (
+                <MerchantCard
+                  key={merchant.id}
+                  merchant={merchant}
+                  onNegotiate={() => openNegotiateModal(merchant)}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </main>
 
-      {/* MODERN CHAT MODAL */}
+      {/* Global Context-Aware Chat Interface Drawer Overlay Canvas Component */}
       {selectedMerchant && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl w-full max-w-[440px] h-[640px] flex flex-col shadow-2xl overflow-hidden">
-            
-            {/* Chat Header */}
-            <div className="px-5 py-4 border-b bg-slate-50 flex items-center gap-3">
-              <div className="w-11 h-11 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-2xl flex items-center justify-center text-white font-bold text-2xl shadow-inner">
-                {selectedMerchant.name?.charAt(0)}
-              </div>
-              <div className="flex-1">
-                <div className="font-semibold text-lg leading-tight">{selectedMerchant.name}</div>
-                <div className="flex items-center gap-1.5 text-emerald-600 text-sm">
-                  <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-                  Online • Export Manager
-                </div>
-              </div>
-              <button 
-                onClick={closeModal}
-                className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Messages Area */}
-            <div className="flex-1 p-5 overflow-y-auto space-y-4 bg-[#f8fafc]">
-              {chatMessages.map((msg) => (
-                <div key={msg.id} className={`flex ${msg.type === 'sent' ? 'justify-end' : 'justify-start'}`}>
-                  {msg.type === 'received' && (
-                    <div className="w-8 h-8 bg-slate-200 rounded-full flex-shrink-0 mr-2 mt-1" />
-                  )}
-                  <div className={`max-w-[78%] px-4 py-3 rounded-3xl text-[15px] leading-relaxed
-                    ${msg.type === 'sent' 
-                      ? 'bg-blue-600 text-white rounded-tr-none' 
-                      : 'bg-white border border-slate-100 rounded-tl-none'
-                    }`}>
-                    {msg.text}
-                    <div className={`text-[10px] mt-1.5 ${msg.type === 'sent' ? 'text-blue-200' : 'text-slate-400'}`}>
-                      {msg.time}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Input Area */}
-            <div className="p-4 border-t bg-white">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                  placeholder="Type your message..."
-                  className="flex-1 border border-slate-200 focus:border-blue-500 rounded-2xl px-5 py-3.5 text-sm focus:outline-none"
-                />
-                <button
-                  onClick={handleSend}
-                  disabled={!message.trim()}
-                  className="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 w-12 h-12 rounded-2xl flex items-center justify-center text-white transition"
-                >
-                  <Send className="h-5 w-5" />
-                </button>
-              </div>
-              <p className="text-center text-[10px] text-slate-400 mt-2">Messages are end-to-end encrypted</p>
-            </div>
-          </div>
-        </div>
+        <NegotiationChatModal
+          merchant={selectedMerchant}
+          // chatMessages={chatMessages}
+          messageText={message}
+          onMessageTextChange={setMessage}
+          onSendMessage={handleSend}
+          onTriggerEmailRequest={handleRequestEmail}
+          onTriggerAutomation={handleTriggerAutomation}
+          onClose={() => setSelectedMerchant(null)}
+        />
       )}
     </div>
   );
