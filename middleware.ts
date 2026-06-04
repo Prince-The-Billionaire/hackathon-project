@@ -3,7 +3,7 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 
 // Explicitly mark /landing, sign-in, and sign-up as completely public routes
 const isPublicRoute = createRouteMatcher([
-  '/landing', 
+  '/', 
   '/sign-in(.*)', 
   '/sign-up(.*)'
 ]);
