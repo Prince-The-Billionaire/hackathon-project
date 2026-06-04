@@ -114,7 +114,7 @@ export default function CargoTrackingPage() {
       <Toaster position="top-right" />
       <div className="absolute top-6 left-6 z-30 p-1 md:top-8 md:left-8">
         <div className="relative h-9 w-9">
-          <Image src="/zeon-logo.jpg" alt="Logo" fill className="object-contain rounded-xl" />
+          <Image src="/zeon-logo.webp" alt="Logo" fill className="object-contain rounded-xl" />
         </div>
       </div>
       <Sidebar />

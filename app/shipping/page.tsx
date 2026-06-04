@@ -142,7 +142,7 @@ export default function ShippingLogisticsPage() {
       {/* Brand Header Float Elements */}
       <div className="absolute top-4 left-4 z-30 flex items-center gap-2 bg-white/80 rounded-xl backdrop-blur-md border border-slate-200/60 p-1.5 shadow-sm md:top-5 md:left-6">
         <div className="relative h-10 w-10">
-          <Image src="/zeon-logo.jpg" alt="Zeon Systems Logo" fill priority className="object-contain rounded-lg" />
+          <Image src="/zeon-logo.webp" alt="Zeon Systems Logo" fill priority className="object-contain rounded-lg" />
         </div>
       </div>
 

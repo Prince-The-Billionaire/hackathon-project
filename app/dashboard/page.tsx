@@ -101,7 +101,7 @@ export default function MainDashboardPage() {
       <div className="absolute top-4 left-4 z-30 flex flex-col items-center gap-2 bg-white/75 rounded-full backdrop-blur-md border border-slate-200/50 p-1 shadow-sm md:top-5 md:left-6">
         <div className="relative h-16 w-16 rounded-full object-contain">
           <Image 
-            src="/zeon-logo.jpg" 
+            src="/zeon-logo.webp" 
             alt="Zeon Systems Logo" 
             fill
             sizes="64px"

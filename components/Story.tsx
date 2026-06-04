@@ -125,7 +125,7 @@ const Story = () => {
     >
       <img 
         className="h-screen z-5 absolute inset-0 w-full object-cover pointer-events-none" 
-        src="/storybg.png" 
+        src="/storybg.webp" 
         alt="Buyer Persona" 
       />
 

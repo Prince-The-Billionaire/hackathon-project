@@ -270,7 +270,7 @@ export default function MarketplaceHub({ stores }: MarketplaceHubProps) {
                         <div key={item.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3.5 rounded-xl border border-slate-200 bg-white hover:border-slate-300 transition-colors shadow-xs">
                           <div className="flex items-center gap-3.5 flex-1 min-w-0">
                             <div className="h-14 w-14 rounded-lg overflow-hidden bg-slate-50 border border-slate-100 shrink-0">
-                              <img src={item.imageUrl || "/fallback-product.png"} alt="" className="h-full w-full object-cover" />
+                              <img src={item.imageUrl || "/fallback-product.webp"} alt="" className="h-full w-full object-cover" />
                             </div>
                             <div className="flex-1 min-w-0 space-y-0.5">
                               <h6 className="font-bold text-slate-900 text-sm truncate">{item.name}</h6>

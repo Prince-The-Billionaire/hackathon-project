@@ -141,7 +141,7 @@ export default function WorldLogisticsMap({ vessels = [], ports, onVesselClick }
           </defs>
 
           <image 
-            href="/map.jpg" 
+            href="/map.webp" 
             x="0" y="0" width="1000" height="500" 
             preserveAspectRatio="xMidYMid slice"
             filter="url(#blue-continent-filter)"

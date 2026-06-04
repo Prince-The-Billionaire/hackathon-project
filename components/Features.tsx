@@ -394,9 +394,9 @@ export default function FeaturesSection() {
                 </div>
                 <span className="self-start sm:self-auto text-[10px] bg-emerald-50 text-emerald-600 border border-emerald-200 font-bold px-2 py-0.5 rounded">Active Network Live</span>
               </div>
-              <div className="aspect-video object-center bg-[url(/image.png)] rounded-xl border border-slate-100 relative overflow-hidden flex items-center justify-center p-4 text-center">
+              <div className="aspect-video object-center bg-[url(/image.webp)] rounded-xl border border-slate-100 relative overflow-hidden flex items-center justify-center p-4 text-center">
                 {/* <div className="absolute inset-0 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:16px_16px] opacity-40" /> */}
-                {/* <img src={'/image.png'} width="100%" height="100%" className="object-contain rounded-2xl"  /> */}
+                {/* <img src={'/image.webp'} width="100%" height="100%" className="object-contain rounded-2xl"  /> */}
                 
               </div>
             </div>

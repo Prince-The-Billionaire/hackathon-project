@@ -77,7 +77,7 @@ const Hero = () => {
       <div className="absolute top-5 md:-top-6 left-0 w-full flex justify-center z-10 pointer-events-none">
         <img
           ref={planeRef}
-          src="/plane_t.png"
+          src="/plane_t.webp"
           className="w-[75%] max-w-[36rem] h-auto drop-shadow-[0_20px_30px_rgba(0,0,0,0.2)]"
           alt="plane"
         />
@@ -185,12 +185,12 @@ const Hero = () => {
 
       {/* Background Graphics */}
       <img
-        src="cloud.png"
+        src="cloud.webp"
         className="absolute top-0 right-2 w-90 brightness-100 h-auto object-cover object-top opacity-70 pointer-events-none select-none z-0"
         alt="cloud background"
       />
       <img
-        src="cloud.png"
+        src="cloud.webp"
         className="absolute top-40 z-40 left-2 w-90 brightness-1000 white h-auto object-cover object-top opacity-70 pointer-events-none select-none"
         alt="cloud background"
       />
@@ -198,7 +198,7 @@ const Hero = () => {
       {/* Background/Base Image Container: Fixed to screen bottom */}
       <img
         ref={shipRef}
-        src="/shipwater.png"
+        src="/shipwater.webp"
         className="absolute bottom-0 left-0 w-full h-[35vh] sm:h-[40vh] md:h-[45vh] object-cover object-top origin-bottom z-20 pointer-events-none select-none"
         alt="cargo ship horizon"
       />
