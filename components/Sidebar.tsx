@@ -78,8 +78,7 @@ export default function Sidebar() {
 
         {/* Clerk User Action Hub */}
         <div className="flex items-center justify-center transition-transform hover:scale-105 duration-200">
-          <UserButton 
-            afterSignOutUrl="/" 
+          <UserButton
             appearance={{
               elements: {
                 avatarBox: "h-7 w-7 md:h-8 md:w-8 border border-slate-200 shadow-sm"
