@@ -1,20 +1,7 @@
-/**
- * ============================================================================
- * MERCHANT DIRECTORY ITEM CARD
- * * Features:
- * - Industrial segmentation layout showcasing core target imports
- * - Fluid layout configurations built cleanly using tailored Tailwind utility grids
- * - Dedicated call-to-action button to spin up automated custom trade workspaces
- * ============================================================================
- * @param merchant - Explicit layout data structure object maps
- * @param onNegotiate - Execution trigger to initialize modal chat portals
- */
-
 "use client";
 
 import React from "react";
-import { MessageSquare, Layers } from "lucide-react";
-import StoreFlagIcon from "./StoreFlagIcon";
+import { MessageSquare, Layers, Loader2 } from "lucide-react";
 
 interface MerchantCardProps {
   merchant: {
@@ -26,10 +13,11 @@ interface MerchantCardProps {
     targetImports: string[];
     industry?: string;
   };
+  isInitializing?: boolean;
   onNegotiate: () => void;
 }
 
-export default function MerchantCard({ merchant, onNegotiate }: MerchantCardProps) {
+export default function MerchantCard({ merchant, isInitializing = false, onNegotiate }: MerchantCardProps) {
   const merchantIndustry = merchant.industry || "General Trade";
 
   return (
@@ -44,10 +32,9 @@ export default function MerchantCard({ merchant, onNegotiate }: MerchantCardProp
             <h4 className="font-bold text-slate-800 text-base group-hover:text-indigo-600 transition-colors truncate">
               {merchant.name}
             </h4>
-            <p className="text-xs text-slate-500 mt-0.5">Contact: {merchant.contactPerson}</p>
+            <p className="text-xs text-slate-500 mt-0.5 max-w-full truncate">Contact: {merchant.contactPerson}</p>
           </div>
           <div className="flex items-center gap-1.5 bg-slate-50 border rounded-full px-2.5 py-1 text-xs text-slate-600 shrink-0">
-            <StoreFlagIcon countryCode={merchant.flagCode} />
             <span className="text-[10px] font-bold text-slate-700 tracking-wider uppercase">
               {merchant.flagCode}
             </span>
@@ -56,7 +43,7 @@ export default function MerchantCard({ merchant, onNegotiate }: MerchantCardProp
 
         <div className="mt-4 pt-3.5 border-t border-slate-100">
           <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 block mb-1.5">
-            Target Import Lines:
+            Operational Lines / Tags:
           </span>
           <div className="flex flex-wrap gap-1">
             {merchant.targetImports.map((item, i) => (
@@ -73,10 +60,20 @@ export default function MerchantCard({ merchant, onNegotiate }: MerchantCardProp
 
       <button
         onClick={onNegotiate}
-        className="mt-5 w-full flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white py-2.5 rounded-xl font-bold text-xs shadow-sm transition-all tracking-wide"
+        disabled={isInitializing}
+        className="mt-5 w-full flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white py-2.5 rounded-xl font-bold text-xs shadow-sm transition-all tracking-wide disabled:opacity-50"
       >
-        <MessageSquare className="h-3.5 w-3.5" />
-        Negotiate Deal
+        {isInitializing ? (
+          <>
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            <span>Establishing Channel...</span>
+          </>
+        ) : (
+          <>
+            <MessageSquare className="h-3.5 w-3.5" />
+            <span>Negotiate Deal</span>
+          </>
+        )}
       </button>
     </div>
   );

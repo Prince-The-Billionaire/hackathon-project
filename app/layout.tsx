@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Sansita } from "next/font/google";
 import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import {GeoProvider} from "@/context/GeoContext";
+import {Toaster} from "react-hot-toast"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,7 +38,9 @@ export default function RootLayout({
       lang="en"
       className={`${sansita.variable}  h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col overflow-x-hidden">{children}</body>
+      <body className="min-h-full flex flex-col overflow-x-hidden">
+        <Toaster/>
+        {children}</body>
     </html>
     </GeoProvider>
     </ClerkProvider>  

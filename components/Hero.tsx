@@ -1,10 +1,12 @@
 'use client';
 
 import React, { useRef } from 'react';
-import { Fingerprint, LogIn } from 'lucide-react';
+import Link from 'next/link'; // Added Next.js Link
+import { Fingerprint, LogIn, LayoutDashboard } from 'lucide-react'; // Added LayoutDashboard icon
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
+import { useAuth } from '@clerk/nextjs'; // Added Clerk auth hook
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -12,6 +14,8 @@ const Hero = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const planeRef = useRef<HTMLImageElement>(null);
   const shipRef = useRef<HTMLImageElement>(null);
+  
+  const { isSignedIn } = useAuth(); // Monitor auth state
 
   // Helper component to wrap every single character in an individual gradient block
   const GradientText = ({ text }: { text: string }) => {
@@ -22,7 +26,6 @@ const Hero = () => {
           return (
             <span
               key={index}
-              
               className="inline-block px-[0.05em] mx-[-0.05em] bg-gradient-to-t from-black via-slate-600 to-blue-600 text-transparent bg-clip-text"
             >
               {char}
@@ -57,7 +60,7 @@ const Hero = () => {
 
   }, { scope: containerRef });
 
-  const handleButtonHover = (e: React.MouseEvent<HTMLButtonElement>, enter: boolean) => {
+  const handleButtonHover = (e: React.MouseEvent<HTMLAnchorElement>, enter: boolean) => {
     gsap.to(e.currentTarget, {
       scale: enter ? 1.06 : 1,
       duration: 0.3,
@@ -86,8 +89,7 @@ const Hero = () => {
         <div className="flex flex-col md:flex-row md:justify-center md:-ml-48 items-start md:items-center gap-6 md:gap-0">
           
           {/* Main Title Headings with Letter-by-Letter Gradient Mapping */}
-          {/* Restored tracking-tight to keep the typography bold and punchy */}
-          <h1 className="text-5xl sm:text-7xl md:text-[8.5rem] z-5 font-black italic  tracking-tight leading-[0.85] uppercase select-none w-full md:w-auto">
+          <h1 className="text-5xl sm:text-7xl md:text-[8.5rem] z-5 font-black italic tracking-tight leading-[0.85] uppercase select-none w-full md:w-auto">
             <GradientText text="EXPORT" />
             <br />
             <span className="pl-8 sm:pl-12 md:ml-16">
@@ -105,49 +107,83 @@ const Hero = () => {
               </span>
             </p>
             
-            {/* Desktop Buttons */}
+            {/* Desktop Navigation Link Actions */}
             <div className="hidden md:flex flex-row ml-12 mt-8 gap-4">
-              <button 
-                onMouseEnter={(e) => handleButtonHover(e, true)}
-                onMouseLeave={(e) => handleButtonHover(e, false)}
-                className="rounded-2xl px-5 py-2.5 text-center text-black font-semibold cursor-pointer border border-gray-300 bg-white hover:bg-gray-50 shadow-sm transition-colors duration-200 text-sm"
-              >
-                Sign Up
-              </button>
+              {isSignedIn ? (
+                <Link 
+                  href="/dashboard"
+                  onMouseEnter={(e) => handleButtonHover(e, true)}
+                  onMouseLeave={(e) => handleButtonHover(e, false)}
+                  className="rounded-2xl px-5 py-2.5 flex flex-row items-center gap-2 text-center cursor-pointer text-white font-semibold bg-blue-600 hover:bg-blue-700 shadow-sm transition-colors duration-200 text-sm"
+                >
+                  <span>Go to Dashboard</span>
+                  <LayoutDashboard className="size-4" />
+                </Link>
+              ) : (
+                <>
+                  <Link 
+                    href="/sign-up"
+                    onMouseEnter={(e) => handleButtonHover(e, true)}
+                    onMouseLeave={(e) => handleButtonHover(e, false)}
+                    className="rounded-2xl px-5 py-2.5 text-center text-black font-semibold cursor-pointer border border-gray-300 bg-white hover:bg-gray-50 shadow-sm transition-colors duration-200 text-sm"
+                  >
+                    Sign Up
+                  </Link>
 
-              <button 
-                onMouseEnter={(e) => handleButtonHover(e, true)}
-                onMouseLeave={(e) => handleButtonHover(e, false)}
-                className="rounded-2xl px-5 py-2.5 flex flex-row items-center gap-2 text-center cursor-pointer text-white font-semibold bg-blue-600 hover:bg-blue-700 shadow-sm transition-colors duration-200 text-sm"
-              >
-                <span>Log In</span>
-                <LogIn className="size-4" />
-              </button>
+                  <Link 
+                    href="/sign-in"
+                    onMouseEnter={(e) => handleButtonHover(e, true)}
+                    onMouseLeave={(e) => handleButtonHover(e, false)}
+                    className="rounded-2xl px-5 py-2.5 flex flex-row items-center gap-2 text-center cursor-pointer text-white font-semibold bg-blue-600 hover:bg-blue-700 shadow-sm transition-colors duration-200 text-sm"
+                  >
+                    <span>Log In</span>
+                    <LogIn className="size-4" />
+                  </Link>
+                </>
+              )}
             </div>
           </div>
 
         </div>
       </div>
 
-      {/* Mobile Bottom Buttons */}
+      {/* Mobile Bottom Navigation Link Actions */}
       <div className="md:hidden flex flex-row w-full justify-center gap-4 px-6 pb-8 relative z-30 mt-auto">
-        <button 
-          onMouseEnter={(e) => handleButtonHover(e, true)}
-          onMouseLeave={(e) => handleButtonHover(e, false)}
-          className="flex-1 rounded-2xl py-3 text-center text-black font-bold border border-gray-300 bg-white shadow-md text-base active:bg-gray-100"
-        >
-          Sign Up
-        </button>
+        {isSignedIn ? (
+          <Link 
+            href="/dashboard"
+            onMouseEnter={(e) => handleButtonHover(e, true)}
+            onMouseLeave={(e) => handleButtonHover(e, false)}
+            className="flex-1 rounded-2xl py-3 flex flex-row justify-center items-center gap-2 text-center text-white font-bold bg-blue-600 shadow-md text-base active:bg-blue-700"
+          >
+            <span>Go to Dashboard</span>
+            <LayoutDashboard className="size-5" />
+          </Link>
+        ) : (
+          <>
+            <Link 
+              href="/sign-up"
+              onMouseEnter={(e) => handleButtonHover(e, true)}
+              onMouseLeave={(e) => handleButtonHover(e, false)}
+              className="flex-1 rounded-2xl py-3 text-center text-black font-bold border border-gray-300 bg-white shadow-md text-base active:bg-gray-100 flex items-center justify-center"
+            >
+              Sign Up
+            </Link>
 
-        <button 
-          onMouseEnter={(e) => handleButtonHover(e, true)}
-          onMouseLeave={(e) => handleButtonHover(e, false)}
-          className="flex-1 rounded-2xl py-3 flex flex-row justify-center items-center gap-2 text-center text-white font-bold bg-blue-600 shadow-md text-base active:bg-blue-700"
-        >
-          <span>Log In</span>
-          <LogIn className="size-5" />
-        </button>
+            <Link 
+              href="/sign-in"
+              onMouseEnter={(e) => handleButtonHover(e, true)}
+              onMouseLeave={(e) => handleButtonHover(e, false)}
+              className="flex-1 rounded-2xl py-3 flex flex-row justify-center items-center gap-2 text-center text-white font-bold bg-blue-600 shadow-md text-base active:bg-blue-700"
+            >
+              <span>Log In</span>
+              <LogIn className="size-5" />
+            </Link>
+          </>
+        )}
       </div>
+
+      {/* Background Graphics */}
       <img
         src="cloud.png"
         className="absolute top-0 right-2 w-90 brightness-100 h-auto object-cover object-top opacity-70 pointer-events-none select-none z-0"

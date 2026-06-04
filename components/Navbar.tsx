@@ -3,15 +3,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/dist/client/link';
-import { LogIn, User, Menu } from 'lucide-react';
+import { LogIn, Menu, LayoutDashboard } from 'lucide-react'; // Added LayoutDashboard icon
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { useRouter } from 'next/navigation';
+import { useAuth, UserButton } from '@clerk/nextjs'; // Imported Clerk features
 
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const containerRef = useRef<HTMLElement>(null);
   const linkContainerRef = useRef<HTMLDivElement>(null);
+  const { isSignedIn } = useAuth(); // Hook to check if user is authenticated
+  const router = useRouter();
 
   // Monitor scroll positioning to switch state targets
   useEffect(() => {
@@ -103,8 +106,6 @@ const Navbar = () => {
     });
   };
 
-  const router = useRouter()
-
   return (
     <nav
       ref={containerRef}
@@ -144,35 +145,53 @@ const Navbar = () => {
 
       {/* Actions Section */}
       <div className="flex flex-row items-center gap-2 sm:gap-4">
-        {/* User Profile Trigger */}
-        <div 
-          className="p-2 cursor-pointer hover:text-blue-600 transition-colors duration-200"
-          onMouseEnter={(e) => handleMouseEnter(e, 1.15)}
-          onMouseLeave={handleMouseLeave}
-        >
-          <User className="w-5 h-5" />
-        </div>
+        
+        {isSignedIn ? (
+          <>
+            {/* Authenticated View: Go to Dashboard */}
+            <Link
+              className="rounded-full px-4 sm:px-5 flex flex-row gap-2 py-2 text-center cursor-pointer text-white bg-blue-600 hover:bg-blue-700 transition-colors duration-200 text-sm font-semibold items-center shadow-sm"
+              onMouseEnter={(e) => handleMouseEnter(e, 1.05)}
+              onMouseLeave={handleMouseLeave}
+              href="/dashboard"
+            >
+              <p className="hidden sm:inline">Dashboard</p>
+              <LayoutDashboard className="w-4 h-4" />
+            </Link>
 
-        {/* Sign Up Action */}
-        <Link
-          className="hidden md:block rounded-full px-5 py-2 text-center cursor-pointer border border-gray-300 bg-white hover:bg-gray-50 transition-colors duration-200 text-sm font-semibold shadow-sm"
-          onMouseEnter={(e) => handleMouseEnter(e, 1.05)}
-          onMouseLeave={handleMouseLeave}
-          href="/sign-up"
-        >
-          Sign Up
-        </Link>
+            {/* Clerk User Avatar Dropdown */}
+            <div 
+              className="p-1 cursor-pointer flex items-center justify-center"
+              onMouseEnter={(e) => handleMouseEnter(e, 1.1)}
+              onMouseLeave={handleMouseLeave}
+            >
+              <UserButton />
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Guest View: Sign Up Action */}
+            <Link
+              className="hidden md:block rounded-full px-5 py-2 text-center cursor-pointer border border-gray-300 bg-white hover:bg-gray-50 transition-colors duration-200 text-sm font-semibold shadow-sm"
+              onMouseEnter={(e) => handleMouseEnter(e, 1.05)}
+              onMouseLeave={handleMouseLeave}
+              href="/sign-up"
+            >
+              Sign Up
+            </Link>
 
-        {/* Log In Action */}
-        <Link
-          className="rounded-full px-4 sm:px-5 flex flex-row gap-2 py-2 text-center cursor-pointer text-white bg-blue-600 hover:bg-blue-700 transition-colors duration-200 text-sm font-semibold items-center shadow-sm"
-          onMouseEnter={(e) => handleMouseEnter(e, 1.05)}
-          onMouseLeave={handleMouseLeave}
-          href="/sign-in"
-        >
-          <p className="hidden sm:inline">Log In</p>
-          <LogIn className="w-4 h-4" />
-        </Link>
+            {/* Guest View: Log In Action */}
+            <Link
+              className="rounded-full px-4 sm:px-5 flex flex-row gap-2 py-2 text-center cursor-pointer text-white bg-blue-600 hover:bg-blue-700 transition-colors duration-200 text-sm font-semibold items-center shadow-sm"
+              onMouseEnter={(e) => handleMouseEnter(e, 1.05)}
+              onMouseLeave={handleMouseLeave}
+              href="/sign-in"
+            >
+              <p className="hidden sm:inline">Log In</p>
+              <LogIn className="w-4 h-4" />
+            </Link>
+          </>
+        )}
 
         {/* Hamburger Trigger */}
         <button 
