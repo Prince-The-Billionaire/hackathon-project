@@ -7,7 +7,7 @@ import { useGSAP } from '@gsap/react';
 gsap.registerPlugin(useGSAP);
 
 const Story = () => {
-  const containerRef = useRef(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   
   const leftProgress = useRef(0);
   const rightProgress = useRef(0);
@@ -39,8 +39,8 @@ const Story = () => {
   ];
 
   useGSAP(() => {
-    const cardElementsLeft = gsap.utils.toArray('.left-card');
-    const cardElementsRight = gsap.utils.toArray('.right-card');
+    const cardElementsLeft = gsap.utils.toArray<HTMLElement>('.left-card');
+    const cardElementsRight = gsap.utils.toArray<HTMLElement>('.right-card');
 
     const updateTick = () => {
       leftProgress.current += 0.0015 * leftSpeed.current;
@@ -81,7 +81,7 @@ const Story = () => {
     return () => gsap.ticker.remove(updateTick);
   }, { scope: containerRef });
 
-  const handleWheelSpeed = (side, decelerate) => {
+  const handleWheelSpeed = (side: 'left' | 'right', decelerate: boolean) => {
     const targetSpeed = decelerate ? 0.08 : 1;
     if (side === 'left') {
       gsap.to(leftSpeed, { current: targetSpeed, duration: 0.6, ease: 'power2.out' });
@@ -90,10 +90,10 @@ const Story = () => {
     }
   };
 
-  const handleCardHover = (e, isEnter) => {
+  const handleCardHover = (e: React.MouseEvent<HTMLDivElement>, isEnter: boolean) => {
     const card = e.currentTarget;
-    const preview = card.querySelector('.preview-overlay');
-    const playIcon = card.querySelector('.play-icon');
+    const preview = card.querySelector<HTMLElement>('.preview-overlay');
+    const playIcon = card.querySelector<HTMLElement>('.play-icon');
 
     if (isEnter) {
       gsap.to(card, {
@@ -103,8 +103,8 @@ const Story = () => {
         ease: 'power2.out',
         overwrite: 'auto',
       });
-      gsap.to(preview, { opacity: 1, duration: 0.25 });
-      gsap.to(playIcon, { scale: 1, opacity: 1, duration: 0.3, ease: 'back.out(1.7)' });
+      if (preview) gsap.to(preview, { opacity: 1, duration: 0.25 });
+      if (playIcon) gsap.to(playIcon, { scale: 1, opacity: 1, duration: 0.3, ease: 'back.out(1.7)' });
     } else {
       gsap.to(card, {
         z: 0,
@@ -113,15 +113,15 @@ const Story = () => {
         ease: 'power2.out',
         overwrite: 'auto',
       });
-      gsap.to(preview, { opacity: 0, duration: 0.25 });
-      gsap.to(playIcon, { scale: 0.5, opacity: 0, duration: 0.25, ease: 'power2.in' });
+      if (preview) gsap.to(preview, { opacity: 0, duration: 0.25 });
+      if (playIcon) gsap.to(playIcon, { scale: 0.5, opacity: 0, duration: 0.25, ease: 'power2.in' });
     }
   };
 
   return (
     <div 
       ref={containerRef} 
-      className="bg-slate-50 relative flex flex-col min-h-screen w-full overflow-hidden [perspective:1200px]"
+      className="bg-slate-50 relative flex flex-col min-h-screen w-full overflow-hidden perspective-distant"
     >
       <img 
         className="h-screen z-5 absolute inset-0 w-full object-cover pointer-events-none" 
@@ -140,7 +140,7 @@ const Story = () => {
             key={card.id}
             onMouseEnter={(e) => handleCardHover(e, true)}
             onMouseLeave={(e) => handleCardHover(e, false)}
-            className="left-card absolute w-24 sm:w-28 aspect-[9/16] rounded-xl overflow-hidden shadow-2xl border border-white/20 cursor-pointer pointer-events-auto [transform-style:preserve-3d]"
+            className="left-card absolute w-24 sm:w-28 aspect-9/16 rounded-xl overflow-hidden shadow-2xl border border-white/20 cursor-pointer pointer-events-auto transform-3d"
           >
             <img src={card.img} alt={card.title} className="w-full h-full object-cover select-none pointer-events-none" />
             
@@ -151,7 +151,7 @@ const Story = () => {
 
             {/* Centered Preview Play overlay with Pop-up Icon */}
             <div className="preview-overlay absolute inset-0 z-30 bg-black/40 opacity-0 flex items-center justify-center pointer-events-none">
-              <div className="play-icon opacity-0 [transform:scale(0.5)] bg-white/90 text-slate-900 rounded-full p-2.5 shadow-xl flex flex-col items-center justify-center">
+              <div className="play-icon opacity-0 transform-[scale(0.5)] bg-white/90 text-slate-900 rounded-full p-2.5 shadow-xl flex flex-col items-center justify-center">
                 {/* SVG Play Icon */}
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 ml-0.5">
                   <path fillRule="evenodd" d="M4.5 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.347c1.295.712 1.295 2.573 0 3.286L7.28 19.99c-1.25.687-2.779-.217-2.779-1.643V5.653Z" clipRule="evenodd" />
@@ -174,7 +174,7 @@ const Story = () => {
             key={card.id}
             onMouseEnter={(e) => handleCardHover(e, true)}
             onMouseLeave={(e) => handleCardHover(e, false)}
-            className="right-card absolute w-24 sm:w-28 aspect-[9/16] rounded-xl overflow-hidden shadow-2xl border border-white/20 cursor-pointer pointer-events-auto [transform-style:preserve-3d]"
+            className="right-card absolute w-24 sm:w-28 aspect-9/16 rounded-xl overflow-hidden shadow-2xl border border-white/20 cursor-pointer pointer-events-auto transform-3d"
           >
             <img src={card.img} alt={card.title} className="w-full h-full object-cover select-none pointer-events-none" />
             
@@ -185,7 +185,7 @@ const Story = () => {
 
             {/* Centered Preview Play overlay with Pop-up Icon */}
             <div className="preview-overlay absolute inset-0 z-30 bg-black/40 opacity-0 flex items-center justify-center pointer-events-none">
-              <div className="play-icon opacity-0 [transform:scale(0.5)] bg-white/90 text-slate-900 rounded-full p-2.5 shadow-xl flex flex-col items-center justify-center">
+              <div className="play-icon opacity-0 transform-[scale(0.5)] bg-white/90 text-slate-900 rounded-full p-2.5 shadow-xl flex flex-col items-center justify-center">
                 {/* SVG Play Icon */}
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 ml-0.5">
                   <path fillRule="evenodd" d="M4.5 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.347c1.295.712 1.295 2.573 0 3.286L7.28 19.99c-1.25.687-2.779-.217-2.779-1.643V5.653Z" clipRule="evenodd" />
