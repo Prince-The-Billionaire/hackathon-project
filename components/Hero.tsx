@@ -87,7 +87,7 @@ const Hero = () => {
           
           {/* Main Title Headings with Letter-by-Letter Gradient Mapping */}
           {/* Restored tracking-tight to keep the typography bold and punchy */}
-          <h1 className="text-5xl sm:text-6xl md:text-[7.5rem] z-5 font-black italic  tracking-tight leading-[0.85] uppercase select-none w-full md:w-auto">
+          <h1 className="text-5xl sm:text-7xl md:text-[8.5rem] z-5 font-black italic  tracking-tight leading-[0.85] uppercase select-none w-full md:w-auto">
             <GradientText text="EXPORT" />
             <br />
             <span className="pl-8 sm:pl-12 md:ml-16">
@@ -148,12 +148,22 @@ const Hero = () => {
           <LogIn className="size-5" />
         </button>
       </div>
+      <img
+        src="cloud.png"
+        className="absolute top-0 right-2 w-90 brightness-100 h-auto object-cover object-top opacity-70 pointer-events-none select-none z-0"
+        alt="cloud background"
+      />
+      <img
+        src="cloud.png"
+        className="absolute top-40 z-40 left-2 w-90 brightness-1000 white h-auto object-cover object-top opacity-70 pointer-events-none select-none"
+        alt="cloud background"
+      />
 
       {/* Background/Base Image Container: Fixed to screen bottom */}
       <img
         ref={shipRef}
         src="/shipwater.png"
-        className="absolute bottom-0 left-0 w-full h-[35vh] sm:h-[40vh] md:h-[45vh] object-cover object-top origin-bottom z-10 pointer-events-none select-none"
+        className="absolute bottom-0 left-0 w-full h-[35vh] sm:h-[40vh] md:h-[45vh] object-cover object-top origin-bottom z-20 pointer-events-none select-none"
         alt="cargo ship horizon"
       />
     </div>
