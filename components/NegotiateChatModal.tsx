@@ -91,16 +91,22 @@ export default function NegotiationChatModal({ conversationId, merchant, onClose
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`
         },
-        body: JSON.stringify({ body: rawBody })
+        // FIXED: Transmitting payload matching both 'body' and 'message' fallback definitions
+        body: JSON.stringify({ 
+          body: rawBody,
+          message: rawBody 
+        })
       });
 
       if (res.ok) {
         if (!textToSend) setTypedMessage("");
         fetchChannelMessages(); // Instantly update lookups on successful dispatch
       } else {
-        throw new Error("Target cluster rejected payload transmission bundle.");
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || "Target cluster rejected payload transmission bundle.");
       }
     } catch (err: any) {
+      console.error("Message submission pipeline fault:", err);
       alert(`Message Dropped: ${err.message}`);
     }
   };
@@ -197,7 +203,7 @@ export default function NegotiationChatModal({ conversationId, merchant, onClose
               <p className="text-[11px] text-center text-slate-400 italic mt-8">Establishing sync lines... State logs are currently clear.</p>
             ) : (
               messages.map((msg) => {
-                const isSystemMessage = msg.body.startsWith("[SYSTEM");
+                const isSystemMessage = msg.body?.startsWith("[SYSTEM");
                 if (isSystemMessage) {
                   return (
                     <div key={msg.id} className="flex justify-center my-2 max-w-full">
