@@ -58,6 +58,13 @@ export default function WorldLogisticsMap({ vessels = [], ports, onVesselClick }
     setRefreshKey((prev) => prev + 1);
   };
 
+  // Safely cleans backend strings and handles long identifier hashes gracefully
+  const cleanPortName = (name: string): string => {
+    if (!name) return "Unknown Terminal";
+    const baseName = name.split(/[_-][0-9a-zA-Z]{4,}/)[0];
+    return baseName.length > 28 ? `${baseName.substring(0, 25)}...` : baseName;
+  };
+
   const getCurvedTelemetry = (vsl: VesselUI) => {
     const p0 = vsl.startCoords || { x: 817, y: 187 };
     const p3 = vsl.endCoords || { x: 509, y: 260 };
@@ -80,11 +87,12 @@ export default function WorldLogisticsMap({ vessels = [], ports, onVesselClick }
     const currentY =
       Math.pow(1 - t, 3) * p0.y +
       3 * Math.pow(1 - t, 2) * t * p1.y +
-      3 * (1 - t) * Math.pow(t, 2) * p2.x + 
+      3 * (1 - t) * Math.pow(t, 2) * p2.y + 
       Math.pow(t, 3) * p3.y;
 
+    // Vector tangents for calculating accurate heading angle transitions
     const dx = 3 * Math.pow(1 - t, 2) * (p1.x - p0.x) + 6 * (1 - t) * t * (p2.x - p1.x) + 3 * Math.pow(t, 2) * (p3.x - p2.x);
-    const dy = 3 * Math.pow(1 - t, 2) * (p1.y - p0.y) + 6 * (1 - t) * t * (p2.y - p1.y) + 3 * Math.pow(t, 2) * (p3.x - p2.x);
+    const dy = 3 * Math.pow(1 - t, 2) * (p1.y - p0.y) + 6 * (1 - t) * t * (p2.y - p1.y) + 3 * Math.pow(t, 2) * (p3.y - p2.y);
 
     const headingAngleDegrees = (Math.atan2(dy, dx) * 180) / Math.PI;
     const curvePathString = `M ${p0.x} ${p0.y} C ${p1.x} ${p1.y}, ${p2.x} ${p2.y}, ${p3.x} ${p3.y}`;
@@ -92,40 +100,18 @@ export default function WorldLogisticsMap({ vessels = [], ports, onVesselClick }
     return { x: currentX, y: currentY, angle: headingAngleDegrees, pathString: curvePathString };
   };
 
-  /**
-   * Dynamically assigns color themes based on vessel ID strings or structural metadata text
-   * instead of relying on an explicit 'type' field.
-   */
   const getVesselStyleByAttributes = (vsl: VesselUI) => {
     const nameLower = vsl.name?.toLowerCase() || "";
     const idLower = vsl.id?.toLowerCase() || "";
 
     if (nameLower.includes("live") || idLower.includes("alpha")) {
-      return { hullColor: "#059669", stripColor: "#10b981", displayType: "Tanker" }; // Emerald Green
+      return { hullColor: "#059669", stripColor: "#10b981", displayType: "Tanker" };
     }
     if (vsl.id.length % 2 === 0) {
-      return { hullColor: "#2563eb", stripColor: "#3b82f6", displayType: "Cargo" };  // Marine Blue
+      return { hullColor: "#2563eb", stripColor: "#3b82f6", displayType: "Cargo" };
     }
-    return { hullColor: "#dc2626", stripColor: "#ef4444", displayType: "Carrier" }; // Crimson Red
+    return { hullColor: "#dc2626", stripColor: "#ef4444", displayType: "Carrier" };
   };
-
-  const getAdaptiveLabelOffset = (portId: string) => {
-    switch (portId) {
-      case "LOS": return { dx: 10, dy: -4, anchor: "start" as const };
-      case "NGSEM": return { dx: -10, dy: 6, anchor: "end" as const };
-      case "DXB": return { dx: 8, dy: -5, anchor: "start" as const };
-      case "AEDXB": return { dx: 8, dy: 11, anchor: "start" as const };
-      case "NYC": return { dx: -8, dy: -6, anchor: "end" as const };
-      case "JFK": return { dx: 10, dy: 10, anchor: "start" as const };
-      case "SZN": return { dx: 10, dy: -3, anchor: "start" as const };
-      case "HKHKG": return { dx: -10, dy: 9, anchor: "end" as const };
-      default: return { dx: 8, dy: 3, anchor: "start" as const };
-    }
-  };
-
-  function cleanPortName(name: string): React.ReactNode {
-    throw new Error("Function not implemented.");
-  }
 
   return (
     <div className="w-full h-full p-4 font-sans text-slate-800">
@@ -187,7 +173,6 @@ export default function WorldLogisticsMap({ vessels = [], ports, onVesselClick }
           {/* Port Hub Vectors */}
           {displayPorts.map((port) => {
             const isMainHub = port.id === "LOS";
-            const labelConfig = getAdaptiveLabelOffset(port.id);
 
             return (
               <g 
@@ -208,16 +193,6 @@ export default function WorldLogisticsMap({ vessels = [], ports, onVesselClick }
                   stroke="#ffffff" 
                   strokeWidth="1.2" 
                 />
-                <text 
-                  x={port.x + labelConfig.dx} 
-                  y={port.y + labelConfig.dy} 
-                  textAnchor={labelConfig.anchor}
-                  fill={isMainHub ? "#065f46" : "#1e40af"} 
-                  fontSize={isMainHub ? "10" : "8.5"} 
-                  className="font-bold tracking-tight"
-                >
-                  {port.id}
-                </text>
               </g>
             );
           })}
@@ -245,7 +220,7 @@ export default function WorldLogisticsMap({ vessels = [], ports, onVesselClick }
                 <circle cx={telemetry.x} cy={telemetry.y} r="18" fill="transparent" />
 
                 <g 
-                  transform={`translate(${telemetry.x}, ${telemetry.y}) rotate(${vsl.heading || telemetry.angle}) scale(${isHovered ? 1.25 : 1})`} 
+                  transform={`translate(${telemetry.x}, ${telemetry.y}) rotate(${vsl.heading !== undefined ? vsl.heading : telemetry.angle}) scale(${isHovered ? 1.25 : 1})`} 
                   className="transition-transform duration-200"
                 >
                   {/* Styled Hull Base Layer */}
