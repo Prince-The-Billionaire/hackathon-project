@@ -118,7 +118,7 @@ const Navbar = () => {
         onMouseLeave={handleMouseLeave}
       >
         <Image
-          src={"/zeon-logo.jpg"}
+          src={"/zeon-logo.webp"}
           width={70}
           height={70}
           loading="eager"

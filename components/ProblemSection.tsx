@@ -144,13 +144,13 @@ const ProblemSection = () => {
             
             <img 
               ref={planesRef}
-              src={'/planes.png'} 
+              src={'/planes.webp'} 
               className="absolute z-30 top-12 -left-9 pointer-events-none opacity-0"
               alt=""
             />
             
             <img 
-              src={'/masked.png'}
+              src={'/masked.webp'}
               className='w-160 h-auto z-10'
               alt=""
             />
@@ -164,7 +164,7 @@ const ProblemSection = () => {
             
             <img 
               ref={parachuteRef}
-              src={'/drop_shipping.png'} 
+              src={'/drop_shipping.webp'} 
               className='absolute -right-24 top-0 w-full object-contain h-10 object-top z-40 pointer-events-none opacity-0'
               alt=""
             />
