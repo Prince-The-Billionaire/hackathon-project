@@ -1,12 +1,6 @@
-/**
- * ============================================================================
- * ZEON SYSTEMS - WORLDWIDE CARRIER LOGISTICS CONTROL HUB
- * ============================================================================
- */
-
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { useAuth } from "@clerk/nextjs";
 import Sidebar from "@/components/Sidebar";
@@ -14,151 +8,136 @@ import WorldLogisticsMap from "@/components/WorldLogisticsMap";
 import VesselDetailsModal from "@/components/VesselDetailsModal";
 import { createApiClient } from "@/utils/api";
 import { VesselUI, PortUI, CarrierMapPayload } from "@/types/types";
-import { RefreshCw, Radio, Layers, Activity } from "lucide-react";
 
 export default function MainDashboardPage() {
   const { getToken, isLoaded } = useAuth();
-  // Use a relaxed type here to satisfy downstream components expecting extended vessel fields
-  const [vessels, setVessels] = useState<any[]>([]);
+  const [vessels, setVessels] = useState<VesselUI[]>([]);
   const [ports, setPorts] = useState<PortUI[]>([]);
   const [selectedVessel, setSelectedVessel] = useState<VesselUI | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Consolidated manual pull pipeline trigger
-  const streamCarrierMapMetrics = useCallback(async (isManualTrigger = false) => {
-    if (!isLoaded) return;
-    
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const client = await createApiClient(getToken);
-      const response = await client("api/carrier/map");
-      
-      if (response && response.status) {
-        const trackingData = response.data as CarrierMapPayload;
-        
-        // Clean up the telemetry objects and assign readable references instead of raw tracking IDs
-        const normalizedVessels = (trackingData.vessels || []).map((vsl, idx) => {
-          // carrierName may not exist on BackendVessel; use alternate fields or safe default
-          const rawName = (vsl as any).carrierName ?? (vsl as any).name ?? (vsl as any).carrier ?? "ZSM";
-          const prefix = String(rawName).substring(0, 3).toUpperCase();
-          const mockIndex = 700 + (idx * 13);
-          return {
-            ...vsl,
-            // Use clean semantic identifier tag for display layout instead of long UUID string
-            readableCallSign: `${prefix}-${mockIndex}`,
-            // Standard fallback safeguards for structural types mapping layers
-            type: vsl.type || "SHIP"
-            ,
-            // Provide explicit current latitude/longitude fields expected by the map component
-            currentLat: (vsl as any).currentLat ?? (vsl as any).latitude ?? (vsl as any).lat ?? 0,
-            currentLng: (vsl as any).currentLng ?? (vsl as any).longitude ?? (vsl as any).lng ?? 0
-          };
-        });
-
-        setVessels(normalizedVessels);
-        if (trackingData.ports) {
-          // Normalize backend port objects to the PortUI shape expected by the UI
-          const normalizedPorts: PortUI[] = (trackingData.ports || []).map((p: any) => ({
-            ...p,
-            // provide explicit x/y coordinates fallbacks
-            x: p.x ?? p.longitude ?? p.lng ?? p.lat ?? 0,
-            y: p.y ?? p.latitude ?? p.lat ?? p.lng ?? 0,
-            // ensure analytics fields exist with safe defaults
-            distToLagos: p.distToLagos ?? 0,
-            etaLagos: p.etaLagos ?? 0
-          }));
-
-          setPorts(normalizedPorts);
-        }
-      } else {
-        throw new Error(response?.message || "Failed to unpack active tracking payload telemetry.");
-      }
-    } catch (err: any) {
-      console.error("Dashboard Engine Exception:", err);
-      setError(err.message || "Ensure your local environment configuration variables contain the proper base URL context.");
-    } finally {
-      setLoading(false);
-    }
-  }, [isLoaded, getToken]);
-
-  // Initial trigger fetch lock on component loading sequence
   useEffect(() => {
-    streamCarrierMapMetrics(false);
-  }, [streamCarrierMapMetrics]);
+    async function streamCarrierMapMetrics() {
+      if (!isLoaded) return;
+      
+      try {
+        setLoading(true);
+        
+        // 1. Initialize our unified secure client passing Clerk's token manager
+        const client = await createApiClient(getToken);
+        
+        // 2. Query the map endpoint
+        const response = await client("api/carrier/map");
+        
+        if (response && response.status) {
+          const trackingData = response.data as CarrierMapPayload;
+
+          // 3. Map raw backend coordinate types to canvas UI vectors
+          const mappedVessels: VesselUI[] = (trackingData.vessels || []).map((v) => {
+            const lat = parseFloat(v.currentLat as string) || 0;
+            const lng = parseFloat(v.currentLng as string) || 0;
+            
+            // Map geographical coordinates onto a balanced pixel distribution layout
+            const x = (lng + 180) * (1000 / 360);
+            const y = (90 - lat) * (500 / 180);
+
+            const matchingShipment = trackingData.shipments?.find(
+              (s) => s.vessel?.name === v.name || s.vessel?.id === v.id
+            );
+
+            return {
+              id: v.id,
+              name: v.name,
+              carrierName: v.carrier?.name || "Independent Carrier",
+              heading: parseFloat(v.currentHeadingDegrees as string) || 0,
+              eta: matchingShipment ? "In Transit (Active Channel)" : "Anchored / Free Track",
+              startCoords: { x: x - 35, y: y + 15 }, 
+              endCoords: { x: 495, y: 310 } // Center Destination Vector: Lagos Apapa Port
+            };
+          });
+
+          const mappedPorts: PortUI[] = (trackingData.ports || []).map((p, idx) => {
+            const lat = parseFloat(p.lat as string) || 0;
+            const lng = parseFloat(p.lng as string) || 0;
+            const computedCode = p.code === "NGLOS" ? "LOS" : p.code;
+            
+            return {
+              // FIX: Append the index or a unique database ID row field to guarantee uniqueness across loops
+              id: p.id ? `${computedCode}-${p.id}` : `${computedCode}-${idx}`,
+              name: p.name,
+              x: (lng + 180) * (1000 / 360),
+              y: (90 - lat) * (500 / 180),
+              distToLagos: p.code === "NGLOS" ? "0 NM" : "Calculated at Sea",
+              etaLagos: p.code === "NGLOS" ? "Local Hub" : "Processing"
+            };
+          });
+
+          setVessels(mappedVessels);
+          setPorts(mappedPorts.length > 0 ? mappedPorts : []);
+          setError(null);
+        } else {
+          setError(response.message || "Failed to process synchronized carrier tracking telemetry.");
+        }
+      } catch (err: any) {
+        console.error("Critical tracking stream synchronization failure:", err);
+        setError(err.message || "Network connection timeout syncing tracking matrix routes.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    streamCarrierMapMetrics();
+    
+    // Polling interval cycle (45 seconds) to ensure coordinates stay active
+    const poolTimer = setInterval(streamCarrierMapMetrics, 45000);
+    return () => clearInterval(poolTimer);
+  }, [getToken, isLoaded]);
 
   return (
-    <div className="w-full min-h-screen bg-slate-900 text-slate-100 font-sans antialiased flex flex-col md:flex-row overflow-hidden select-none">
+    <div className="relative h-screen w-screen overflow-hidden bg-slate-50 text-slate-800 antialiased flex flex-col md:flex-row">
       
-      {/* Top Banner Branding Branding Node */}
-      <div className="absolute top-4 left-4 z-40 flex items-center gap-2 bg-slate-950/80 border border-slate-800/80 p-2.5 rounded-xl backdrop-blur-md shadow-2xl md:top-5 md:left-6">
-        <div className="relative h-7 w-7 rounded-lg overflow-hidden border border-slate-700">
-          <Image src="/zeon-logo.webp" alt="Zeon Logo" fill priority className="object-contain scale-110" />
-        </div>
-        <div className="flex flex-col">
-          <span className="text-xs font-mono font-black tracking-wider text-white">ZEON<span className="text-blue-500">.SYS</span></span>
-          <span className="text-[9px] font-mono font-bold tracking-widest text-slate-400 uppercase -mt-0.5">Tactical Terminal</span>
+      {/* BRANDING TOP LEFT LOGO CONTAINER */}
+      <div className="absolute top-4 left-4 z-30 flex flex-col items-center gap-2 bg-white/75 rounded-full backdrop-blur-md border border-slate-200/50 p-1 shadow-sm md:top-5 md:left-6">
+        <div className="relative h-16 w-16 rounded-full object-contain">
+          <Image 
+            src="/zeon-logo.webp" 
+            alt="Zeon Systems Logo" 
+            fill
+            sizes="64px"
+            priority
+            className="object-contain rounded-full"
+          />
         </div>
       </div>
 
       <Sidebar />
 
-      {/* Main Structural Visual Grid Layout Wrapper */}
-      <div className="w-full h-screen relative flex flex-col flex-1">
-        <div className="w-full h-full pt-16 pb-24 px-2 md:pl-24 md:pt-5 md:pb-3 md:pr-3 relative flex flex-col">
+      <main className="w-full h-full relative z-10 flex-1">
+        <div className="w-full h-full pt-16 pb-24 px-2 md:pl-24 md:pt-5 md:pb-3 md:pr-3 relative">
           
-          {/* Header Dashboard Metrics Strip Bar Layout */}
-          <div className="w-full bg-slate-950/60 backdrop-blur-md border border-slate-800/80 rounded-2xl p-4 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl relative z-30">
-            <div className="flex items-center gap-3">
-              <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
-              <div>
-                <h2 className="text-sm font-bold text-white tracking-wide uppercase font-mono">Global Supply Chain Matrix</h2>
-                <p className="text-[11px] text-slate-400 mt-0.5">Real-time intermodal logistics tracking node network layout.</p>
-              </div>
+          {loading && vessels.length === 0 ? (
+            <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm rounded-2xl m-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-2 border-t-blue-600 border-slate-200 mb-2" />
+              <p className="text-xs text-slate-500 font-mono tracking-wide">Syncing satellite telemetry arrays...</p>
             </div>
-
-            {/* Controlled Manual Refresh Interface Trigger Handle */}
-            <div className="flex items-center gap-2 self-end sm:self-auto">
-              {loading && (
-                <span className="text-[10px] font-mono tracking-wider text-slate-400 uppercase mr-2 animate-pulse flex items-center gap-1.5">
-                  <Activity className="h-3 w-3 text-blue-400 animate-bounce" /> Syncing Telemetry Matrix...
-                </span>
-              )}
-              <button
-                type="button"
-                disabled={loading}
-                onClick={() => streamCarrierMapMetrics(true)}
-                className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-white font-bold text-xs uppercase tracking-wider px-4 py-2.5 rounded-xl transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-black/40"
-              >
-                <RefreshCw className={`h-3.5 w-3.5 text-blue-400 ${loading ? "animate-spin" : ""}`} />
-                <span>Update Metrics</span>
-              </button>
+          ) : error ? (
+            <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-white/90 backdrop-blur-sm rounded-2xl border border-red-100 m-4 p-6 text-center">
+              <p className="text-sm font-semibold text-red-600">{error}</p>
+              <p className="text-xs text-slate-400 mt-2 font-mono max-w-md mx-auto">
+                Ensure your local environment configuration variables contain the proper base URL context.
+              </p>
             </div>
-          </div>
+          ) : null}
 
-          {/* Full-bleed Map View Container Frame viewport workspace */}
-          <div className="flex-1 w-full bg-slate-950/40 rounded-2xl border border-slate-800/80 relative overflow-hidden shadow-2xl flex">
-            
-            {error && (
-              <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-slate-950/90 backdrop-blur-md border border-red-900/50 rounded-2xl p-6 text-center">
-                <p className="text-sm font-semibold text-red-400 font-mono tracking-wide">CRITICAL TELEMETRY FAULT</p>
-                <p className="text-xs text-slate-400 mt-2 font-sans max-w-md mx-auto leading-relaxed">{error}</p>
-              </div>
-            )}
-
-            <WorldLogisticsMap 
-              vessels={vessels} 
-              ports={ports}
-              onVesselClick={(vsl) => setSelectedVessel(vsl)} 
-            />
-          </div>
-
+          <WorldLogisticsMap 
+            vessels={vessels} 
+            ports={ports}
+            onVesselClick={setSelectedVessel} 
+          />
         </div>
-      </div>
+      </main>
 
-      {/* Trigger Modal Interface Panel Details Handle */}
       {selectedVessel && (
         <VesselDetailsModal 
           vessel={selectedVessel} 
