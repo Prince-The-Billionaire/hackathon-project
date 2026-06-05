@@ -1,23 +1,39 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { CreditCard, ShieldCheck, Clock, ArrowRight, Loader2 } from "lucide-react";
+import React, { useState } from "react";
+import { CreditCard, MapPin, ArrowRight, Loader2, FileCheck, MessageSquareOff, MessageSquare } from "lucide-react";
 import toast from "react-hot-toast";
 import { createApiClient } from "../utils/api";
 import { useAuth } from "@clerk/nextjs";
+import { CargoGroup } from "@/app/cargo/page";
 
 interface CargoFinancialLedgerProps {
-  selectedCargo: any;
+  selectedCargo: CargoGroup | null;
   costBreakdown: any;
   formatNaira: (val: number) => string;
   onActionComplete?: () => void;
+  onOpenNegotiation: (conversationId: string, merchant: { id: string; name: string }) => void;
 }
 
-export default function CargoFinancialLedger({ selectedCargo, costBreakdown, formatNaira, onActionComplete }: CargoFinancialLedgerProps) {
+export default function CargoFinancialLedger({ 
+  selectedCargo, 
+  costBreakdown, 
+  formatNaira, 
+  onActionComplete,
+  onOpenNegotiation
+}: CargoFinancialLedgerProps) {
   const [actionLoading, setActionLoading] = useState(false);
   const { getToken } = useAuth();
 
-  // Hidden admin/system fallback metrics for processing behind the scenes
+  // Unified Address Form Fields State matching your structure
+  const [address, setAddress] = useState({
+    country: "Nigeria",
+    city: "",
+    street: "",
+    postalCode: "",
+    fullAddress: ""
+  });
+
   const ESTIMATED_TARIFF_BPS = 500;
   const ESTIMATED_CUSTOMS_FEE = 150000;
   const ESTIMATED_VAT_BPS = 750;
@@ -25,7 +41,7 @@ export default function CargoFinancialLedger({ selectedCargo, costBreakdown, for
   if (!selectedCargo) {
     return (
       <div className="bg-white rounded-2xl p-6 text-center text-slate-400 font-medium text-xs border border-slate-200 shadow-2xs">
-        Select an allocation track row item to view live port accounting metrics.
+        Select a store cargo cluster row item to view live port billing matrices.
       </div>
     );
   }
@@ -33,146 +49,249 @@ export default function CargoFinancialLedger({ selectedCargo, costBreakdown, for
   const rawStatus = (selectedCargo.status || "").toUpperCase().replace(/ /g, "_");
   const isDraft = rawStatus === "DRAFT";
   const isAwaitingPayment = rawStatus === "AWAITING_PAYMENT";
-  const isPaid = rawStatus === "PAID" || rawStatus === "IN_TRANSIT" || rawStatus === "DELIVERED";
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setAddress(prev => {
+      const stateUpdate = { ...prev, [name]: value };
+      if (name !== 'fullAddress') {
+        stateUpdate.fullAddress = `${stateUpdate.street}, ${stateUpdate.city}, ${stateUpdate.postalCode}, ${stateUpdate.country}`.trim().replace(/^,\s*/, '');
+      }
+      return stateUpdate;
+    });
+  };
+
+  const validateDeliveryCoordinates = () => {
+    if (!address.city.trim() || !address.street.trim() || !address.postalCode.trim()) {
+      toast.error("Please supply complete delivery address details before building parameters.");
+      return false;
+    }
+    return true;
+  };
+
+  // Compile calculations on the cluster while holding for explicit confirmation
   const runCheckoutPipeline = async () => {
+    if (!validateDeliveryCoordinates()) return;
+
     try {
       setActionLoading(true);
       const api = await createApiClient(getToken);
-
-      if (isDraft) {
-        toast.loading("Generating clear customs matrix structures...", { id: "workflow" });
-        
-        await api("api/cargo/allocation/checkout", {
-          method: "POST",
-          body: JSON.stringify({ 
-            allocationId: selectedCargo.id,
-            tariffRateBps: ESTIMATED_TARIFF_BPS,
-            // Automatically handled internally based on estimates
-            customsFeeMinor: ESTIMATED_CUSTOMS_FEE * 100, 
-            vatRateBps: ESTIMATED_VAT_BPS
-          }),
-        });
-        
-        toast.success("Landed breakdown built. Executing allocation locking...", { id: "workflow" });
-        
-        const confirmData = await api(`api/cargo/allocation/${selectedCargo.id}/confirm`, { method: "POST" });
-        const url = confirmData?.checkoutUrl || confirmData?.data?.checkoutUrl;
-
-        if (url) {
-          toast.success("Forwarding context to Kora gateway interface...", { id: "workflow" });
-          window.location.href = url;
-        } else {
-          if (onActionComplete) onActionComplete();
-        }
-        return;
-      }
-
-      if (isAwaitingPayment) {
-        toast.loading("Re-fetching active checkout endpoint links...", { id: "workflow" });
-        const confirmData = await api(`api/cargo/allocation/${selectedCargo.id}/confirm`, { method: "POST" });
-        const url = confirmData?.checkoutUrl || confirmData?.data?.checkoutUrl;
-        if (url) {
-          window.location.href = url;
-        } else {
-          toast.error("Gateway could not establish clean context tokens.");
-        }
-      }
+      toast.loading("Compiling consolidated custom landed cost parameters...", { id: "workflow" });
+      
+      // Sending payload batch bundle array and localized address information context object maps
+      await api("api/cargo/allocation/checkout", {
+        method: "POST",
+        body: JSON.stringify({ 
+          allocationIds: selectedCargo.allocationIds,
+          tariffRateBps: ESTIMATED_TARIFF_BPS,
+          customsFeeMinor: ESTIMATED_CUSTOMS_FEE * 100, 
+          vatRateBps: ESTIMATED_VAT_BPS,
+          deliveryAddress: {
+            country: address.country,
+            city: address.city,
+            street: address.street,
+            postal_code: address.postalCode,
+            fullAddress: address.fullAddress
+          }
+        }),
+      });
+      
+      toast.success("Consolidated fees built successfully. Manifest updated to Awaiting Payment status.", { id: "workflow" });
+      if (onActionComplete) onActionComplete();
     } catch (err: any) {
-      console.error("Pipeline breakdown sequence execution error:", err);
-      toast.error(err.message || "Financial ledger computation pipeline encountered a failure state.", { id: "workflow" });
+      console.error("Pipeline failure:", err);
+      toast.error(err.message || "Failed processing item parameters data blocks.", { id: "workflow" });
     } finally {
       setActionLoading(false);
     }
   };
 
-  // Backend issue band-aid fix: multiply itemCost by 100 if it arrives divided by 100.
-  const correctedItemCost = (costBreakdown?.itemCost || 0) * 100;
+  // Only triggers verification context loops once user manually accepts cost totals
+  const runConfirmPipeline = async () => {
+    try {
+      setActionLoading(true);
+      const api = await createApiClient(getToken);
+      toast.loading("Acquiring secure gateway access tokens...", { id: "workflow" });
+
+      // Run routing checks directly from tracking anchor index reference arrays
+      const rootId = selectedCargo.allocationIds[0];
+      const confirmData = await api(`api/cargo/allocation/${rootId}/confirm`, { method: "POST" });
+      const url = confirmData?.checkoutUrl || confirmData?.data?.checkoutUrl;
+
+      if (url) {
+        toast.success("Rerouting frame to secure transaction vault gateway...", { id: "workflow" });
+        window.location.href = url;
+      } else {
+        toast.error("Endpoint transaction keys failed serialization criteria checks.");
+      }
+    } catch (err: any) {
+      toast.error("Critical core error processing confirmation pipelines.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Dynamic initialization for active communication nodes linking to parent storefront profiles
+  const triggerStoreNegotiationChannel = async () => {
+    try {
+      setActionLoading(true);
+      const api = await createApiClient(getToken);
+      toast.loading("Synchronizing communication node hooks...", { id: "chat-seq" });
+
+      const payload = await api("api/messaging/conversations", {
+        method: "POST",
+        body: JSON.stringify({ participantId: selectedCargo.storeId })
+      });
+
+      const conversationId = payload?.id || payload?.data?.id;
+      if (!conversationId) throw new Error("Could not construct or fetch dialog link mapping.");
+
+      // Post an automatic message inside the conversation thread context to state negotiation intent
+      await api(`api/messaging/conversations/${conversationId}/messages`, {
+        method: "POST",
+        body: JSON.stringify({ 
+          body: `[SYSTEM FREIGHT NEGOTIATION INTENT] Regarding consolidated cargo block entry cluster tracking under reference Store IDs. Requesting manual re-audit on total calculated Landed Fees (${formatNaira(costBreakdown?.totalLandedCost || 0)}).` 
+        })
+      });
+
+      toast.success("Secure chat workspace linked.", { id: "chat-seq" });
+      onOpenNegotiation(conversationId, { id: selectedCargo.storeId, name: selectedCargo.storeName });
+    } catch (err: any) {
+      toast.error(err.message || "Failed tracking store data stream nodes.", { id: "chat-seq" });
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   return (
     <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-2xs space-y-6 text-xs transition-all duration-300">
-      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-        <div className="flex items-center gap-2">
-          <CreditCard className="h-4 w-4 text-slate-900" />
-          <h3 className="font-bold text-[10px] tracking-widest text-slate-400 uppercase">Valuation Breakdown Matrix</h3>
+      <div>
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
+          <div className="flex items-center gap-2">
+            <CreditCard className="h-4 w-4 text-slate-900" />
+            <h3 className="font-bold text-[10px] tracking-widest text-slate-400 uppercase">Financial Audit Ledger</h3>
+          </div>
+        </div>
+
+        <div className="space-y-3 font-medium">
+          <div className="flex items-center justify-between text-slate-600">
+            <span>Aggregated Base Goods Net Value</span>
+            <span className="font-bold text-slate-800">{formatNaira(costBreakdown?.itemCost || 0)}</span>
+          </div>
+          <div className="flex items-center justify-between text-slate-600">
+            <span>Custom Duties & Port Clearances</span>
+            <span className="font-semibold text-slate-800">
+              {formatNaira((costBreakdown?.tariffAmount || 0) + (costBreakdown?.customsFees || 0))}
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-slate-600">
+            <span>Consolidated VAT Component (7.5%)</span>
+            <span className="font-semibold text-slate-800">{formatNaira(costBreakdown?.vatAmount || 0)}</span>
+          </div>
+          <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+            <span className="font-bold text-slate-900 uppercase tracking-wider text-[10px]">Total Landed Costs</span>
+            <span className="text-base font-black text-slate-900">{formatNaira(costBreakdown?.totalLandedCost || 0)}</span>
+          </div>
         </div>
       </div>
 
-      <div className="space-y-3 pt-1 border-b border-slate-100 pb-4">
-        <div className="flex items-center justify-between text-slate-600 font-medium">
-          <span>Base Items Net Value</span>
-          {/* Multiplied back to counteract the backend division error */}
-          <span className="font-bold text-slate-800">{formatNaira(correctedItemCost)}</span>
+      {/* Dynamic Destination Parameter Mapping Section */}
+      {isDraft && (
+        <div className="pt-2 border-t border-slate-100/80 space-y-3">
+          <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400 tracking-widest uppercase">
+            <MapPin className="h-3.5 w-3.5 text-slate-900" />
+            <span>Outward Waybill Handover Address</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-[9px] font-bold text-slate-400 uppercase">Logistics Country</label>
+              <input 
+                type="text" name="country" value={address.country} onChange={handleInputChange}
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-slate-900 font-medium text-slate-800"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-bold text-slate-400 uppercase">State / City Node</label>
+              <input 
+                type="text" name="city" placeholder="e.g. Lagos" value={address.city} onChange={handleInputChange}
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-slate-900 font-medium text-slate-800"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="col-span-2 space-y-1">
+              <label className="text-[9px] font-bold text-slate-400 uppercase">Street Layout Coordinates</label>
+              <input 
+                type="text" name="street" placeholder="Avenue details" value={address.street} onChange={handleInputChange}
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-slate-900 font-medium text-slate-800"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-bold text-slate-400 uppercase">Postal Index</label>
+              <input 
+                type="text" name="postalCode" placeholder="100001" value={address.postalCode} onChange={handleInputChange}
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-slate-900 font-medium text-slate-800"
+              />
+            </div>
+          </div>
         </div>
-        <div className="flex items-center justify-between text-slate-600 font-medium">
-          <span>Custom Duties & Surcharges</span>
-          <span className="font-semibold text-slate-800">
-            {formatNaira((costBreakdown?.tariffAmount || 0) + (costBreakdown?.customsFees || 0))}
-          </span>
-        </div>
-        <div className="flex items-center justify-between text-slate-600 font-medium">
-          <span>Port Component VAT (7.5%)</span>
-          <span className="font-semibold text-slate-800">{formatNaira(costBreakdown?.vatAmount || 0)}</span>
-        </div>
-        <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-          <span className="font-bold text-slate-900 uppercase tracking-wider text-[10px]">Total Landed Costs</span>
-          <span className="text-base font-black text-slate-900">{formatNaira(costBreakdown?.totalLandedCost || 0)}</span>
-        </div>
-      </div>
+      )}
 
+      {/* Information Warning Notice Grid */}
       <div className={`p-4 rounded-xl flex items-start gap-3 border ${
-        isPaid ? "bg-emerald-50/60 border-emerald-200/50 text-emerald-950" : "bg-amber-50/60 border-amber-200/50 text-amber-950"
+        isAwaitingPayment ? "bg-amber-50/70 border-amber-200 text-amber-950" : "bg-slate-50 border-slate-200"
       }`}>
-        {isPaid ? (
-          <>
-            <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-            <div className="space-y-0.5">
-              <p className="font-bold text-[11px] text-emerald-900">Capital Escrow Verified</p>
-              <p className="text-[10px] text-emerald-800/90 leading-relaxed">
-                Settlement funds are currently held under system custodian conditions until terminal nodes sign off waybill validations.
-              </p>
-            </div>
-          </>
-        ) : (
-          <>
-            <Clock className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-            <div className="space-y-0.5">
-              <p className="font-bold text-[11px] text-amber-900">{isDraft ? "Awaiting Metric Matrix Audit" : "Awaiting Gateway Clearance"}</p>
-              <p className="text-[10px] text-amber-800/90 leading-relaxed">
-                {isDraft 
-                  ? "Generate the final custom item valuation models to activate outward-facing trade lanes."
-                  : "Landed calculations are locked. Pass verification signatures onto the terminal provider system to proceed."}
-              </p>
-            </div>
-          </>
-        )}
+        <FileCheck className={`h-4 w-4 shrink-0 mt-0.5 ${isAwaitingPayment ? 'text-amber-600' : 'text-slate-400'}`} />
+        <div className="space-y-0.5">
+          <p className="font-bold text-[11px] text-slate-900">{isAwaitingPayment ? "Consolidated Costs Locked For Review" : "Invoicing Parameters Clean"}</p>
+          <p className="text-[10px] text-slate-500 leading-relaxed">
+            {isAwaitingPayment 
+              ? "Review your metrics. Click Accept to redirect context to the portal gateway, or open terms negotiation blocks below."
+              : "Generate calculations layout parameters to freeze base allocations and secure final customs paths."}
+          </p>
+        </div>
       </div>
 
-      <button
-        onClick={runCheckoutPipeline}
-        disabled={actionLoading || isPaid}
-        className={`w-full font-bold uppercase tracking-wider py-3.5 rounded-xl transition-all duration-200 flex items-center justify-center gap-2 shadow-sm text-[10px] ${
-          isPaid
-            ? "bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200 shadow-none"
-            : "bg-slate-950 hover:bg-slate-800 text-white active:scale-[0.98]"
-        }`}
-      >
-        {actionLoading ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : isPaid ? (
-          <span>Manifest Funded & Locked</span>
-        ) : isDraft ? (
-          <>
-            <span>Compile Valuation & Checkout</span>
-            <ArrowRight className="h-3.5 w-3.5" />
-          </>
-        ) : (
-          <>
-            <span>Reroute To Kora Gateway</span>
-            <ArrowRight className="h-3.5 w-3.5" />
-          </>
+      {/* Multi-Stage Action Execution Modules */}
+      <div className="space-y-2">
+        {isDraft && (
+          <button
+            onClick={runCheckoutPipeline}
+            disabled={actionLoading}
+            className="w-full font-bold uppercase tracking-wider py-3.5 rounded-xl transition-all bg-slate-950 hover:bg-slate-800 text-white flex items-center justify-center gap-2 shadow-sm text-[10px]"
+          >
+            {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : (
+              <>
+                <span>Calculate & Compile Landed Matrix</span>
+                <ArrowRight className="h-3.5 w-3.5" />
+              </>
+            )}
+          </button>
         )}
-      </button>
+
+        {isAwaitingPayment && (
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={runConfirmPipeline}
+              disabled={actionLoading}
+              className="w-full font-bold uppercase tracking-wider py-3.5 rounded-xl transition-all bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-2 shadow-sm text-[10px]"
+            >
+              {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : (
+                <span>Accept Fees & Redirect to Checkout</span>
+              )}
+            </button>
+            
+            <button
+              onClick={triggerStoreNegotiationChannel}
+              disabled={actionLoading}
+              className="w-full py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl font-bold uppercase tracking-wider text-[9px] flex items-center justify-center gap-1.5 transition-colors"
+            >
+              <MessageSquare className="h-3.5 w-3.5 text-indigo-600" />
+              <span>Negotiate Freight Terms</span>
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

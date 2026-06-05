@@ -2,21 +2,47 @@
 
 import React, { useState, useMemo, useEffect } from "react";
 import Image from "next/image";
-import Sidebar from "../../components/Sidebar";
+import Sidebar  from "../../components/Sidebar";
 import { Package, Loader2, AlertCircle, RefreshCw } from "lucide-react";
 import CargoMiniCard from "../../components/CargoMiniCard";
 import CargoFinancialLedger from "../../components/CargoFinancialLedger";
-import CargoAlertsDrawer from "../../components/CargoAlertsDrawer";
+import NegotiationChatModal from "../../components/NegotiateChatModal";
 import { Toaster } from "react-hot-toast";
 import { createApiClient } from "../../utils/api"; 
 import { useAuth } from "@clerk/nextjs";
+
+export interface CargoGroup {
+  id: string; // Aggregated Identifier mapped to store.id
+  storeId: string;
+  storeName: string;
+  direction: "Import" | "Export";
+  itemName: string;
+  origin: string;
+  destination: string;
+  status: string;
+  eta: string;
+  currencyCode: string;
+  quantity: number;
+  allocationIds: string[];
+  hasFinancials: boolean;
+  financials: {
+    itemCost: number;
+    tariffAmount: number;
+    customsFees: number;
+    vatAmount: number;
+    totalLandedCost: number;
+  };
+}
 
 export default function CargoTrackingPage() {
   const [allocations, setAllocations] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedCargoId, setSelectedCargoId] = useState<string | null>(null);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [directionFilter, setDirectionFilter] = useState<"All" | "Import" | "Export">("All");
+
+  // Chat Modal UI States
+  const [activeChat, setActiveChat] = useState<{ conversationId: string; merchant: { id: string; name: string } } | null>(null);
 
   const { getToken } = useAuth();
 
@@ -31,12 +57,14 @@ export default function CargoTrackingPage() {
       const fetchedData = Array.isArray(resData) 
         ? resData 
         : (Array.isArray(resData.cargoAllocations) ? resData.cargoAllocations : (resData.data?.cargoAllocations || []));
-        
-      setAllocations(fetchedData);
       
-      if (fetchedData.length > 0 && !selectedCargoId) {
-        setSelectedCargoId(fetchedData[0].id);
-      }
+      // Filter for actionable states matching criteria: DRAFT & AWAITING_PAYMENT
+      const filteredActionable = fetchedData.filter((alloc: any) => {
+        const status = (alloc.status || "").toUpperCase();
+        return status === "DRAFT" || status === "AWAITING_PAYMENT";
+      });
+
+      setAllocations(filteredActionable);
     } catch (err: any) {
       console.error("Cargo tracking synchronizer failure:", err);
       setError(err.message || "Failed to index active cargo allocations from the cluster database.");
@@ -49,57 +77,91 @@ export default function CargoTrackingPage() {
     fetchAllocations();
   }, []);
 
-  const transformedOrders = useMemo(() => {
-    return allocations.map((alloc) => {
-      const primaryItem = alloc.items?.[0];
-      const itemsCount = alloc.items?.length || 0;
-      
-      const computedItemName = primaryItem?.product?.name || "Marketplace Cargo Pool";
-      const displayName = itemsCount > 1 ? `${computedItemName} (+${itemsCount - 1} entries)` : computedItemName;
+  // Structural dynamic matching of allocations sharing corresponding store keys
+  const groupedCargoPool = useMemo(() => {
+    const groups: { [key: string]: any[] } = {};
+    
+    allocations.forEach((alloc) => {
+      const storeId = alloc.store?.id || "unknown-store";
+      if (!groups[storeId]) groups[storeId] = [];
+      groups[storeId].push(alloc);
+    });
 
-      const hasFinancials = !!alloc.landedCostBreakdown;
-      
-      // Calculate a client-side fallback price if the landed cost matrix hasn't run yet
-      const draftBaseCost = (alloc.items || []).reduce((acc: number, item: any) => {
-        const itemPrice = Number(item.product?.priceAmountMinor || 0) / 100;
-        const itemQty = Number(item.quantity || 0);
-        return acc + (itemPrice * itemQty);
-      }, 0);
+    return Object.keys(groups).map((storeId) => {
+      const storeItems = groups[storeId];
+      const primaryAlloc = storeItems[0];
+      const storeName = primaryAlloc.store?.name || "Marketplace Source Store";
+      const allocationIds = storeItems.map(a => a.id);
+
+      let totalItemCount = 0;
+      let draftBaseCost = 0;
+      let aggregatedTariff = 0;
+      let aggregatedCustoms = 0;
+      let aggregatedVat = 0;
+      let aggregatedTotalLanded = 0;
+      let compoundStatus = "DRAFT";
+
+      // Elevate parent status to payment processing flags if any subnode requests it
+      if (storeItems.some(a => (a.status || "").toUpperCase() === "AWAITING_PAYMENT")) {
+        compoundStatus = "AWAITING_PAYMENT";
+      }
+
+      storeItems.forEach((alloc) => {
+        const items = alloc.items || [];
+        totalItemCount += items.length;
+
+        items.forEach((item: any) => {
+          const price = Number(item.product?.priceAmountMinor || 0) / 100;
+          const qty = Number(item.quantity || 0);
+          draftBaseCost += (price * qty);
+        });
+
+        if (alloc.landedCostBreakdown) {
+          aggregatedTariff += Number(alloc.landedCostBreakdown.tariffAmountMinor) / 100;
+          aggregatedCustoms += Number(alloc.landedCostBreakdown.customsFeeMinor) / 100;
+          aggregatedVat += Number(alloc.landedCostBreakdown.vatAmountMinor) / 100;
+          aggregatedTotalLanded += Number(alloc.landedCostBreakdown.totalAmountMinor) / 100;
+        }
+      });
+
+      const hasFinancials = storeItems.some(a => !!a.landedCostBreakdown);
+      const primaryProduct = primaryAlloc.items?.[0]?.product?.name || "Marketplace Cargo Pool";
+      const itemDisplayName = totalItemCount > 1 ? `${primaryProduct} (+${totalItemCount - 1} entries)` : primaryProduct;
 
       return {
-        id: alloc.id,
+        id: storeId,
+        storeId,
+        storeName,
         direction: "Import" as const,
-        itemName: displayName,
-        origin: alloc.store?.name || "Marketplace Source Store",
+        itemName: itemDisplayName,
+        origin: storeName,
         destination: "Lagos Hub Node (NG)",
-        status: alloc.status || "DRAFT",
+        status: compoundStatus,
         carrier: "Pending Port Assignment",
         eta: hasFinancials ? "Calculated" : "Awaiting Audit",
-        currencyCode: alloc.currencyCode || "NGN",
-        quantity: itemsCount,
+        currencyCode: primaryAlloc.currencyCode || "NGN",
+        quantity: totalItemCount,
+        allocationIds,
         hasFinancials,
         financials: {
-          itemCost: alloc.landedCostBreakdown ? Number(alloc.landedCostBreakdown.baseCostMinor) / 100 : draftBaseCost,
-          tariffAmount: alloc.landedCostBreakdown ? Number(alloc.landedCostBreakdown.tariffAmountMinor) / 100 : 0,
-          customsFees: alloc.landedCostBreakdown ? Number(alloc.landedCostBreakdown.customsFeeMinor) / 100 : 0,
-          vatAmount: alloc.landedCostBreakdown ? Number(alloc.landedCostBreakdown.vatAmountMinor) / 100 : 0,
-          totalLandedCost: alloc.landedCostBreakdown ? Number(alloc.landedCostBreakdown.totalAmountMinor) / 100 : draftBaseCost
+          itemCost: draftBaseCost,
+          tariffAmount: aggregatedTariff,
+          customsFees: aggregatedCustoms,
+          vatAmount: aggregatedVat,
+          totalLandedCost: hasFinancials ? aggregatedTotalLanded : draftBaseCost
         }
       };
     });
   }, [allocations]);
 
-  const allShipments = useMemo(() => {
-    return [...transformedOrders];
-  }, [transformedOrders]);
-
+  // Handle setting active choices cleanly across array mutations
   const selectedCargo = useMemo(() => {
-    return allShipments.find((ship) => ship.id === selectedCargoId) || allShipments[0] || null;
-  }, [allShipments, selectedCargoId]);
+    return groupedCargoPool.find((g) => g.id === selectedGroupId) || groupedCargoPool[0] || null;
+  }, [groupedCargoPool, selectedGroupId]);
 
   const filteredCargo = useMemo(() => {
-    return allShipments.filter((c) => directionFilter === "All" || c.direction === directionFilter);
-  }, [allShipments, directionFilter]);
+    return groupedCargoPool.filter((c) => directionFilter === "All" || c.direction === directionFilter);
+  }, [groupedCargoPool, directionFilter]);
 
   const formatCurrency = (value: number, code: string = "NGN") => {
     return new Intl.NumberFormat("en-NG", {
@@ -123,9 +185,9 @@ export default function CargoTrackingPage() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200/60">
             <div>
               <span className="text-slate-400 font-bold tracking-wider text-[10px] uppercase flex items-center gap-1">
-                <Package className="h-3 w-3" /> System Tracking Core
+                <Package className="h-3 w-3" /> Consolidator Routing Hub
               </span>
-              <h1 className="text-2xl font-black text-slate-900 mt-0.5 tracking-tight">Cargo Dashboard</h1>
+              <h1 className="text-2xl font-black text-slate-900 mt-0.5 tracking-tight">Cargo Consolidation</h1>
             </div>
             <button
               onClick={() => fetchAllocations(false)}
@@ -133,7 +195,7 @@ export default function CargoTrackingPage() {
               className="p-2 bg-white hover:bg-slate-50 text-slate-600 rounded-xl border border-slate-200 shadow-2xs transition-all flex items-center gap-2 text-xs font-bold"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-              <span>Refresh Matrix</span>
+              <span>Refresh Pools</span>
             </button>
           </div>
 
@@ -154,7 +216,7 @@ export default function CargoTrackingPage() {
           {loading ? (
             <div className="flex flex-col items-center justify-center py-24 space-y-3 bg-white border border-slate-200 rounded-2xl shadow-2xs">
               <Loader2 className="h-6 w-6 animate-spin text-slate-900" />
-              <p className="text-xs text-slate-400 font-medium tracking-wide">Syncing terminal state streams...</p>
+              <p className="text-xs text-slate-400 font-medium tracking-wide">Grouping terminal manifests by store identifier indices...</p>
             </div>
           ) : error ? (
             <div className="flex flex-col items-center justify-center p-8 text-center bg-red-50 border border-red-200 rounded-2xl space-y-2">
@@ -167,15 +229,25 @@ export default function CargoTrackingPage() {
               <div className="lg:col-span-7 space-y-3">
                 {filteredCargo.length === 0 ? (
                   <div className="text-center py-16 border border-dashed border-slate-200 rounded-2xl text-slate-400 text-xs bg-white font-medium">
-                    No active item allocations found inside this scope.
+                    No active cargo batches found matching DRAFT or AWAITING_PAYMENT criteria.
                   </div>
                 ) : (
-                  filteredCargo.map((cargo) => (
+                  filteredCargo.map((group) => (
                     <CargoMiniCard
-                      key={cargo.id}
-                      cargo={cargo}
-                      isSelected={selectedCargo?.id === cargo.id}
-                      onClick={() => setSelectedCargoId(cargo.id)}
+                      key={group.id}
+                      cargo={{
+                        id: `STORE-POOL-${group.storeId.slice(0, 6).toUpperCase()}`,
+                        direction: group.direction,
+                        itemName: group.itemName,
+                        origin: group.storeName,
+                        destination: group.destination,
+                        status: group.status,
+                        eta: group.eta,
+                        quantity: group.quantity
+                      }}
+                      allocationIds={group.allocationIds}
+                      isSelected={selectedCargo?.id === group.id}
+                      onClick={() => setSelectedGroupId(group.id)}
                       onRefreshNeeded={() => fetchAllocations(true)}
                     />
                   ))
@@ -183,17 +255,28 @@ export default function CargoTrackingPage() {
               </div>
               
               <div className="lg:col-span-5">
-                <CargoFinancialLedger
-                  selectedCargo={selectedCargo}
-                  costBreakdown={selectedCargo?.financials}
-                  formatNaira={(val) => formatCurrency(val, selectedCargo?.currencyCode)}
-                  onActionComplete={() => fetchAllocations(true)}
-                />
+                {selectedCargo && (
+                  <CargoFinancialLedger
+                    selectedCargo={selectedCargo}
+                    costBreakdown={selectedCargo.financials}
+                    formatNaira={(val) => formatCurrency(val, selectedCargo.currencyCode)}
+                    onActionComplete={() => fetchAllocations(true)}
+                    onOpenNegotiation={(convId, merchantMeta) => setActiveChat({ conversationId: convId, merchant: merchantMeta })}
+                  />
+                )}
               </div>
             </div>
           )}
         </div>
       </main>
+
+      {activeChat && (
+        <NegotiationChatModal
+          conversationId={activeChat.conversationId}
+          merchant={activeChat.merchant}
+          onClose={() => setActiveChat(null)}
+        />
+      )}
     </div>
   );
 }
