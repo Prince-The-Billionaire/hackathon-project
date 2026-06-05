@@ -7,7 +7,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { X, Anchor, Package, Gauge, Compass, Radio, Activity, Box } from "lucide-react";
+import { X, Anchor, Package, Gauge, Compass, Radio, Box } from "lucide-react";
 import { useAuth } from "@clerk/nextjs";
 import { createApiClient } from "@/utils/api";
 import { VesselUI } from "../types/types";
@@ -91,27 +91,27 @@ export default function VesselDetailsModal({ vessel, onClose }: ModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in select-none">
-      <div className="w-full max-w-xl rounded-2xl border border-slate-800 bg-slate-900 p-5 md:p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto text-slate-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-fade-in select-none">
+      <div className="w-full max-w-xl rounded-2xl border border-slate-200/80 bg-white p-5 md:p-6 shadow-xl relative max-h-[90vh] overflow-y-auto text-slate-800">
         
         {/* Header Layout */}
-        <div className="flex items-start justify-between pb-4 border-b border-slate-800">
+        <div className="flex items-start justify-between pb-4 border-b border-slate-100">
           <div>
             {/* Clean callsign label instead of the long raw string id */}
-            <span className="text-[10px] px-2 py-0.5 rounded bg-blue-950 text-blue-400 border border-blue-900/50 font-mono font-bold tracking-wider uppercase">
+            <span className="text-[10px] px-2 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-100 font-mono font-bold tracking-wider uppercase">
               {vessel.readableCallSign || "ACTIVE-NODE"}
             </span>
-            <h3 className="text-base md:text-lg font-bold text-white mt-2 tracking-tight uppercase font-mono">
+            <h3 className="text-base md:text-lg font-bold text-slate-900 mt-2 tracking-tight uppercase font-mono">
               {vessel.name}
             </h3>
-            <p className="text-xs text-slate-400 mt-1 flex items-center gap-1.5">
-              <Anchor className="h-3.5 w-3.5 text-slate-500 shrink-0" /> 
-              <span>Operator Fleet: <strong className="text-slate-200 font-semibold">{vessel.carrierName}</strong></span>
+            <p className="text-xs text-slate-500 mt-1 flex items-center gap-1.5">
+              <Anchor className="h-3.5 w-3.5 text-slate-400 shrink-0" /> 
+              <span>Operator Fleet: <strong className="text-slate-700 font-semibold">{vessel.carrierName}</strong></span>
             </p>
           </div>
           <button 
             onClick={onClose} 
-            className="p-1.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all active:scale-95" 
+            className="p-1.5 rounded-xl text-slate-400 hover:bg-slate-50 hover:text-slate-800 transition-all active:scale-95" 
             aria-label="Close modal"
           >
             <X className="h-4 w-4" />
@@ -121,42 +121,42 @@ export default function VesselDetailsModal({ vessel, onClose }: ModalProps) {
         {/* Dynamic Telemetry Matrix Grid */}
         <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
           {/* Speed Indicator */}
-          <div className="p-3.5 rounded-xl bg-slate-950/40 border border-slate-800/80 flex gap-3 items-start shadow-inner">
-            <Gauge className="h-4 w-4 text-blue-400 mt-0.5 shrink-0" />
+          <div className="p-3.5 rounded-xl bg-slate-50/50 border border-slate-200/60 flex gap-3 items-start shadow-sm">
+            <Gauge className="h-4 w-4 text-blue-600 mt-0.5 shrink-0" />
             <div>
-              <span className="text-[10px] font-bold font-mono uppercase tracking-wider text-slate-500 block mb-0.5">Velocity Rate</span>
-              <p className="text-xs font-bold text-slate-200 font-mono">{speed} {getSpeedUnit(assetType)}</p>
+              <span className="text-[10px] font-bold font-mono uppercase tracking-wider text-slate-400 block mb-0.5">Velocity Rate</span>
+              <p className="text-xs font-bold text-slate-800 font-mono">{speed} {getSpeedUnit(assetType)}</p>
             </div>
           </div>
 
           {/* Asset Classification Type */}
-          <div className="p-3.5 rounded-xl bg-slate-950/40 border border-slate-800/80 flex gap-3 items-start shadow-inner">
-            <Compass className="h-4 w-4 text-blue-400 mt-0.5 shrink-0" />
+          <div className="p-3.5 rounded-xl bg-slate-50/50 border border-slate-200/60 flex gap-3 items-start shadow-sm">
+            <Compass className="h-4 w-4 text-blue-600 mt-0.5 shrink-0" />
             <div>
-              <span className="text-[10px] font-bold font-mono uppercase tracking-wider text-slate-500 block mb-0.5">Transit Classification</span>
-              <p className="text-xs font-bold text-blue-400 uppercase tracking-wide font-mono">
+              <span className="text-[10px] font-bold font-mono uppercase tracking-wider text-slate-400 block mb-0.5">Transit Classification</span>
+              <p className="text-xs font-bold text-blue-600 uppercase tracking-wide font-mono">
                 {assetType}
               </p>
             </div>
           </div>
 
           {/* Allocation Volume Capacity */}
-          <div className="p-3.5 rounded-xl bg-slate-950/40 border border-slate-800/80 flex gap-3 items-start shadow-inner">
-            <Package className="h-4 w-4 text-blue-400 mt-0.5 shrink-0" />
+          <div className="p-3.5 rounded-xl bg-slate-50/50 border border-slate-200/60 flex gap-3 items-start shadow-sm">
+            <Package className="h-4 w-4 text-blue-600 mt-0.5 shrink-0" />
             <div>
-              <span className="text-[10px] font-bold font-mono uppercase tracking-wider text-slate-500 block mb-0.5">{getCapacityUnit(assetType)}</span>
-              <p className="text-xs font-bold text-slate-200 font-mono">
+              <span className="text-[10px] font-bold font-mono uppercase tracking-wider text-slate-400 block mb-0.5">{getCapacityUnit(assetType)}</span>
+              <p className="text-xs font-bold text-slate-800 font-mono">
                 {capacity.toLocaleString()}
               </p>
             </div>
           </div>
 
           {/* Utilization Factor */}
-          <div className="p-3.5 rounded-xl bg-slate-950/40 border border-slate-800/80 flex gap-3 items-start shadow-inner">
-            <Box className="h-4 w-4 text-blue-400 mt-0.5 shrink-0" />
+          <div className="p-3.5 rounded-xl bg-slate-50/50 border border-slate-200/60 flex gap-3 items-start shadow-sm">
+            <Box className="h-4 w-4 text-blue-600 mt-0.5 shrink-0" />
             <div>
-              <span className="text-[10px] font-bold font-mono uppercase tracking-wider text-slate-500 block mb-0.5">Payload Load Factor</span>
-              <p className="text-xs font-bold text-emerald-400 font-mono">
+              <span className="text-[10px] font-bold font-mono uppercase tracking-wider text-slate-400 block mb-0.5">Payload Load Factor</span>
+              <p className="text-xs font-bold text-emerald-600 font-mono">
                 {utilization}% Capacity
               </p>
             </div>
@@ -164,14 +164,14 @@ export default function VesselDetailsModal({ vessel, onClose }: ModalProps) {
         </div>
 
         {/* Global Registry Index Identification Banner */}
-        <div className="mt-4 p-4 rounded-xl border border-slate-800 bg-slate-950/60 flex flex-col gap-1 relative overflow-hidden shadow-inner">
-          <div className="flex items-center gap-2 text-[10px] font-bold text-blue-400 uppercase tracking-wider font-mono">
-            <Radio className="h-3.5 w-3.5 shrink-0 text-blue-400 animate-pulse" />
+        <div className="mt-4 p-4 rounded-xl border border-slate-200 bg-slate-50 flex flex-col gap-1 relative overflow-hidden shadow-sm">
+          <div className="flex items-center gap-2 text-[10px] font-bold text-blue-600 uppercase tracking-wider font-mono">
+            <Radio className="h-3.5 w-3.5 shrink-0 text-blue-500 animate-pulse" />
             <span>International System Broadcast Router</span>
           </div>
-          <div className="text-xs text-slate-300 font-medium font-mono pt-1 leading-normal flex justify-between items-center">
+          <div className="text-xs text-slate-600 font-medium font-mono pt-1 leading-normal flex justify-between items-center">
             <span>{registryNumber} — Live Sync</span>
-            <span className="text-[10px] font-sans font-semibold text-slate-400 bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded shadow-sm">
+            <span className="text-[10px] font-sans font-semibold text-slate-500 bg-white border border-slate-200 px-1.5 py-0.5 rounded shadow-sm">
               HDG: {vessel.heading || extendedData?.currentHeadingDegrees || "0"}°
             </span>
           </div>
