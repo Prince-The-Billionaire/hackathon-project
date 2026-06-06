@@ -95,42 +95,29 @@ export default function ShippingLogisticsPage() {
       
       const api = await createApiClient(getToken);
 
-      // Step 1: Query database to check if thread has been established previously[cite: 2]
+      // Step 1: Query database to check if thread has been established previously
       const payload = await api<ApiResponseEnvelope<{ conversations: any[] }>>("api/messaging/conversations", {
         method: "GET"
       });
 
-      let targetConversationId: string | null = null;
+      let targetConversationId: string = "new";
 
       if (payload.status && Array.isArray(payload.data?.conversations)) {
         const existing = payload.data.conversations.find(
           (c: any) => c.storeId === merchant.id && c.status === "OPEN"
         );
-        if (existing) targetConversationId = existing.id;
+        if (existing) {
+          targetConversationId = existing.id;
+        }
       }
 
-      // Step 2: Initialize a brand new negotiation channel if none exists[cite: 2]
-      if (!targetConversationId) {
-        const initPayload = await api<ApiResponseEnvelope<any>>("api/messaging/conversations", {
-          method: "POST",
-          body: JSON.stringify({
-            storeId: merchant.id,
-            subject: `Trade Negotiation: ${merchant.name}`,
-            body: `Greetings from our procurement desk. We would like to initiate trade talks regarding your available listings.`
-          })
-        });
-
-        // Backend returns either direct id or wrapped conversationId[cite: 2]
-        targetConversationId = initPayload.data?.id || initPayload.data?.conversationId || null;
-      }
-
-      if (!targetConversationId) throw new Error("Failed to resolve dynamic workspace session hash.");
-
+      // Step 2: Route directly to modal context layout canvas
+      // If it's a new channel, passing "new" lets NegotiationChatModal handle creation gracefully on submission
       setActiveConversationId(targetConversationId);
       setSelectedMerchant(merchant);
 
     } catch (err: any) {
-      console.error("Negotiation channel registration failed:", err);
+      console.error("Negotiation channel lookup failed:", err);
       alert(`Negotiation Routing Interrupted: ${err.message || "Unknown gateway operational exception."}`);
     } finally {
       setNegotiateLoading(null);
@@ -231,10 +218,8 @@ export default function ShippingLogisticsPage() {
                     id: merchant.id,
                     name: merchant.name,
                     contactPerson: merchant.contactEmail || "Trade Representative Desk",
-                    // Map to 2-letter country code matching backend models
                     flagCode: merchant.countryCode || "HQ", 
                     country: merchant.country || merchant.city || "Global",
-                    // Use custom fallback if tags don't exist yet
                     targetImports: merchant.tags || [merchant.category || "General Cargo"], 
                     industry: merchant.category
                   }}
@@ -252,6 +237,10 @@ export default function ShippingLogisticsPage() {
         <NegotiationChatModal
           conversationId={activeConversationId}
           merchant={selectedMerchant}
+          onConversationCreated={(newId) => {
+            // Dynamically latch onto the real ID once the user types and sends their first message
+            setActiveConversationId(newId);
+          }}
           onClose={() => {
             setSelectedMerchant(null);
             setActiveConversationId(null);

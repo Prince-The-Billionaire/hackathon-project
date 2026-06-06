@@ -7,13 +7,13 @@ import { useAuth } from "@clerk/nextjs";
 interface NegotiationChatModalProps {
   conversationId: string; // Pass "new" or a blank string if starting a chat from scratch
   merchant: {
-    id: string; // The storeId or merchant identifier
+    id: string; // Ensure this is passing the actual 'storeId' from your marketplace item card!
     name: string;
     category?: string;
   };
-  productId?: string; // Optional context identifier passed from the listing page
+  productId?: string; 
   onClose: () => void;
-  onConversationCreated?: (newId: string) => void; // Optional callback to lift state up
+  onConversationCreated?: (newId: string) => void; 
 }
 
 export default function NegotiationChatModal({ 
@@ -27,30 +27,30 @@ export default function NegotiationChatModal({
   const { getToken } = useAuth();
   const backendUrl = process.env.NEXT_PUBLIC_API_URL || "https://zeon-backend.onrender.com";
 
-  // Active Context Tracker Tracking Parameters
   const [activeConversationId, setActiveConversationId] = useState<string>(initialConversationId);
   const [messages, setMessages] = useState<any[]>([]);
   const [typedMessage, setTypedMessage] = useState("");
   const [pollingActive, setPollingActive] = useState(true);
 
-  // Form State Layouts
+  // Manifest Form Layout Elements
   const [showExportForm, setShowExportForm] = useState(false);
   const [manifestData, setManifestData] = useState<any | null>(null);
   const [escrowStatus, setEscrowStatus] = useState<"NONE" | "PENDING" | "LOCKED">("NONE");
-
   const [goodsName, setGoodsName] = useState("Industrial Component Line");
   const [goodsQty, setGoodsQty] = useState(500);
   const [goodsPrice, setGoodsPrice] = useState(12500);
 
-  const isNewThread = !activeConversationId || activeConversationId === "new";
+  const isNewThread = !activeConversationId || activeConversationId === "" || activeConversationId === "new";
 
   // Sync / Fetch Conversation Log From Backend
-  const fetchChannelMessages = React.useCallback(async () => {
-    if (isNewThread) return; // Do not poll if conversation node is not instantiated yet
+  // Fixed dependency system: Removed static boolean check from locking updates
+  const fetchChannelMessages = React.useCallback(async (targetId?: string) => {
+    const idToFetch = targetId || activeConversationId;
+    if (!idToFetch || idToFetch === "" || idToFetch === "new") return; 
 
     try {
       const token = await getToken();
-      const res = await fetch(`${backendUrl}/api/messaging/conversations/${activeConversationId}/messages`, {
+      const res = await fetch(`${backendUrl}/api/messaging/conversations/${idToFetch}/messages`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -70,20 +70,24 @@ export default function NegotiationChatModal({
     } catch (err) {
       console.warn("Failed syncing thread data stream nodes:", err);
     }
-  }, [activeConversationId, isNewThread, backendUrl, getToken]);
+  }, [activeConversationId, backendUrl, getToken]);
 
-  // Setup polling loops
+  // Handle Polling Intervals cleanly
   useEffect(() => {
-    fetchChannelMessages();
-
+    if (!isNewThread) {
+      fetchChannelMessages();
+    }
+    
     const intervalNode = setInterval(() => {
-      if (pollingActive && !isNewThread) fetchChannelMessages();
+      if (pollingActive && !isNewThread) {
+        fetchChannelMessages();
+      }
     }, 3000);
 
     return () => clearInterval(intervalNode);
   }, [fetchChannelMessages, pollingActive, isNewThread]);
 
-  // Auto-scroll handler
+  // Auto Scroll Feed
   useEffect(() => {
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
@@ -97,56 +101,63 @@ export default function NegotiationChatModal({
 
     try {
       const token = await getToken();
-      let res;
+      let targetUrl = "";
+      let payloadBody: Record<string, any> = {};
 
       if (isNewThread) {
-        // CASE A: Initializing a brand new store communication channel layout
-        res = await fetch(`${backendUrl}/api/messaging/conversations`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            storeId: merchant.id, // Maps to required merchant payload property
-            productId: productId || null, 
-            subject: `Trade Terms Discussion: ${merchant.name}`,
-            body: rawBody // Initial message body
-          })
-        });
+        // STRICT ALIGNMENT WITH POST /api/messaging/conversations
+        targetUrl = `${backendUrl}/api/messaging/conversations`;
+        payloadBody = {
+          storeId: merchant.id, 
+          subject: String(`Trade Terms Discussion: ${merchant.name || "Store"}`),
+          body: String(rawBody)
+        };
+        if (productId) {
+          payloadBody.productId = productId;
+        }
       } else {
-        // CASE B: Appending data frame packet chunk to an established ongoing thread
-        res = await fetch(`${backendUrl}/api/messaging/conversations/${activeConversationId}/messages`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
-          },
-          body: JSON.stringify({ 
-            body: rawBody 
-          })
-        });
+        // STRICT ALIGNMENT WITH POST /api/messaging/conversations/:id/messages
+        targetUrl = `${backendUrl}/api/messaging/conversations/${activeConversationId}/messages`;
+        payloadBody = {
+          body: String(rawBody)
+        };
       }
+
+      const res = await fetch(targetUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify(payloadBody)
+      });
 
       if (res.ok) {
         const payload = await res.json();
         if (!textToSend) setTypedMessage("");
 
         if (isNewThread && payload.data?.id) {
-          // Captures newly created thread transaction context ID dynamically
           const allocatedId = payload.data.id;
+          
+          // CRITICAL FIX: Update state AND pass target ID directly to fetch payload instantly 
           setActiveConversationId(allocatedId);
           if (onConversationCreated) onConversationCreated(allocatedId);
+          
+          await fetchChannelMessages(allocatedId);
         } else {
-          fetchChannelMessages();
+          await fetchChannelMessages();
         }
       } else {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.message || "Target cluster rejected payload transmission bundle.");
+        const errorContent = await res.json().catch(() => null);
+        const serverErrorMessage = errorContent 
+          ? `Server Response: ${JSON.stringify(errorContent)}` 
+          : `HTTP Error Status: ${res.status}`;
+        
+        throw new Error(serverErrorMessage);
       }
     } catch (err: any) {
-      console.error("Message submission pipeline fault:", err);
-      alert(`Message Dropped: ${err.message}`);
+      console.error("Transmission Failure Matrix Logged:", err);
+      alert(`Message Dropped!\n\n${err.message}`);
     }
   };
 
@@ -165,16 +176,11 @@ export default function NegotiationChatModal({
     handleSendMessage(`[SYSTEM MANIFEST OUTBOUND] Item: ${goodsName} | Quantity: ${goodsQty} | Proposed Total Value: ₦${computedTotal.toLocaleString()}`);
   };
 
-  const handleConfirmMockEscrow = () => {
-    setEscrowStatus("LOCKED");
-    handleSendMessage(`[SYSTEM NOTICE - ESCROW GATEWAY SECURED] Client allocation confirmed. Clearing node holds authorized capital.`);
-  };
-
   return (
     <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 transition-all duration-300">
       <div className="bg-white rounded-3xl w-full max-w-[95vw] sm:max-w-4xl h-[calc(100vh-2rem)] sm:h-[700px] max-h-[92vh] flex flex-col lg:flex-row shadow-[0_24px_70px_-10px_rgba(15,23,42,0.15)] overflow-hidden border border-slate-100/80">
         
-        {/* LEFT PANEL: Chat Feed Workspace */}
+        {/* LEFT PANEL: Chat Window Workspace */}
         <div className="flex-1 flex flex-col min-w-0 lg:border-r border-slate-100/60 bg-slate-50/30">
           
           <div className="px-6 py-4 border-b border-slate-100 bg-white/80 backdrop-blur-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
@@ -194,9 +200,9 @@ export default function NegotiationChatModal({
             <div className="flex items-center gap-2">
               {!isNewThread && (
                 <button 
-                  onClick={fetchChannelMessages}
+                  onClick={() => fetchChannelMessages()}
                   className="p-2 rounded-xl border border-slate-100 text-slate-400 bg-slate-50 hover:bg-slate-100 transition-colors"
-                  title="Refresh logs manually"
+                  title="Refresh logs"
                 >
                   <RefreshCw className="h-3.5 w-3.5" />
                 </button>
@@ -221,7 +227,7 @@ export default function NegotiationChatModal({
             </button>
           </div>
 
-          {/* Messages Feed Container */}
+          {/* Messages Feed View Container */}
           <div ref={scrollContainerRef} className="flex-1 p-5 overflow-y-auto space-y-4 bg-slate-50/40">
             {isNewThread ? (
               <div className="flex flex-col items-center justify-center text-center h-full max-w-sm mx-auto space-y-2">
@@ -270,7 +276,7 @@ export default function NegotiationChatModal({
             )}
           </div>
 
-          {/* Submissions Execution Controls Footer */}
+          {/* Input Controls Footer */}
           <div className="p-4 bg-white border-t border-slate-100 shrink-0">
             <div className="flex gap-2">
               <input
@@ -334,32 +340,6 @@ export default function NegotiationChatModal({
                 <button onClick={() => setShowExportForm(true)} className="w-full py-2.5 bg-slate-900 text-white font-semibold rounded-xl hover:bg-slate-800 transition-colors shadow-xs">
                   Configure Outbound Manifest
                 </button>
-              </div>
-            )}
-
-            {escrowStatus !== "NONE" && manifestData && (
-              <div className="p-4 rounded-2xl border bg-gradient-to-b from-indigo-50/40 to-indigo-50/10 border-indigo-100/60 shadow-xs space-y-3">
-                <h5 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                  <Landmark className="w-3.5 h-3.5 text-indigo-600" /> Escrow Vault Handler
-                </h5>
-                {escrowStatus === "PENDING" ? (
-                  <>
-                    <div className="p-2.5 bg-white rounded-xl text-xs font-mono font-bold text-slate-800 flex justify-between items-center ring-1 ring-indigo-100/50">
-                      <span className="text-slate-400 font-sans text-[10px]">Value:</span>
-                      <span className="text-indigo-600">₦{manifestData.totalValue.toLocaleString()}</span>
-                    </div>
-                    <button onClick={handleConfirmMockEscrow} className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs rounded-xl uppercase">
-                      Lock Capital to Escrow Node
-                    </button>
-                  </>
-                ) : (
-                  <div className="p-3 bg-emerald-500/5 rounded-xl border border-emerald-500/10 text-emerald-800 space-y-1">
-                    <div className="flex items-center gap-1.5 font-bold text-xs text-emerald-800">
-                      <ShieldCheck className="w-4 h-4 text-emerald-600" /> Secure Vault Hold Locked
-                    </div>
-                    <p className="text-[10px] text-emerald-600/90">₦{manifestData.totalValue.toLocaleString()} held safely inside secure structures.</p>
-                  </div>
-                )}
               </div>
             )}
           </div>
