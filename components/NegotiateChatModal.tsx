@@ -58,10 +58,16 @@ export default function NegotiationChatModal({
             (a: any, b: any) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime()
           );
           setMessages(sorted);
+        } else if (Array.isArray(payload.messages)) {
+          // Fallback if payload isn't nested inside a data wrapper
+          const sorted = payload.messages.sort(
+            (a: any, b: any) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime()
+          );
+          setMessages(sorted);
         }
       }
     } catch (err) {
-      console.warn("Failed syncing thread data stream nodes:", err);
+      console.warn("Failed syncing messages:", err);
     }
   }, [activeConversationId, backendUrl, getToken]);
 
@@ -203,7 +209,7 @@ export default function NegotiationChatModal({
             <p className="text-xs text-center text-slate-400 italic mt-8">Loading history logs...</p>
           ) : (
             messages.map((msg) => {
-              const isSystemMessage = msg.body?.startsWith("[SYSTEM");
+              const isSystemMessage = msg.senderType === "SYSTEM" || msg.direction === "SYSTEM" || msg.body?.startsWith("[SYSTEM");
               if (isSystemMessage) {
                 return (
                   <div key={msg.id} className="flex justify-center my-2 max-w-full">
@@ -214,7 +220,8 @@ export default function NegotiationChatModal({
                 );
               }
 
-              const isMe = msg.senderType === "USER";
+              // Checks if your user ID matches the sender ID to place your messages accurately on the right
+              const isMe = msg.senderUserId === user?.id || msg.direction === "OUTBOUND";
               const displayTime = msg.sentAt ? new Date(msg.sentAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
               
               const merchantImageUrl = msg.senderUser?.profileImageUrl;
@@ -229,7 +236,7 @@ export default function NegotiationChatModal({
                       {merchantImageUrl ? (
                         <img src={merchantImageUrl} alt={merchant.name} className="w-full h-full object-cover" />
                       ) : (
-                        merchant.name?.charAt(0)
+                        msg.senderUser?.firstName?.charAt(0) || merchant.name?.charAt(0)
                       )}
                     </div>
                   )}
