@@ -50,7 +50,7 @@ export default function NegotiationChatModal({
 
     try {
       const token = await getToken();
-      const res = await fetch(`${backendUrl}/api/messaging/conversations/${idToFetch}/messages`, {
+      const res = await fetch(`${backendUrl}api/messaging/conversations/${idToFetch}/messages`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -106,7 +106,7 @@ export default function NegotiationChatModal({
 
       if (isNewThread) {
         // STRICT ALIGNMENT WITH POST /api/messaging/conversations
-        targetUrl = `${backendUrl}/api/messaging/conversations`;
+        targetUrl = `${backendUrl}api/messaging/conversations`;
         payloadBody = {
           storeId: merchant.id, 
           subject: String(`Trade Terms Discussion: ${merchant.name || "Store"}`),
@@ -117,7 +117,7 @@ export default function NegotiationChatModal({
         }
       } else {
         // STRICT ALIGNMENT WITH POST /api/messaging/conversations/:id/messages
-        targetUrl = `${backendUrl}/api/messaging/conversations/${activeConversationId}/messages`;
+        targetUrl = `${backendUrl}api/messaging/conversations/${activeConversationId}/messages`;
         payloadBody = {
           body: String(rawBody)
         };
