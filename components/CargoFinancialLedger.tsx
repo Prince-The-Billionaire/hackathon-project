@@ -23,6 +23,7 @@ export default function CargoFinancialLedger({
   onOpenNegotiation
 }: CargoFinancialLedgerProps) {
   const [actionLoading, setActionLoading] = useState(false);
+  const [readyToConfirm, setReadyToConfirm] = useState(false)
   const { getToken } = useAuth();
 
   // Pure data tracking state block reflecting exact payload schemas
@@ -129,6 +130,7 @@ export default function CargoFinancialLedger({
       });
       
       toast.success("Consolidated fees built successfully. Manifest updated to Awaiting Payment status.", { id: "workflow" });
+      setReadyToConfirm(true)
       if (onActionComplete) onActionComplete();
     } catch (err: any) {
       console.error("Pipeline failure:", err);
@@ -299,7 +301,7 @@ export default function CargoFinancialLedger({
           </button>
         )}
 
-        {isAwaitingPayment && (
+        {isAwaitingPayment || readyToConfirm && (
           <div className="flex flex-col gap-2">
             <button
               onClick={runConfirmPipeline}
