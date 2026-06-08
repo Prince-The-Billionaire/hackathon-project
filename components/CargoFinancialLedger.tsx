@@ -80,13 +80,6 @@ export default function CargoFinancialLedger({
         const createPayload = {
           storeId: selectedCargo.storeId,
           currencyCode: selectedCargo.currencyCode,
-          deliveryAddress: {
-            country: address.country,
-            city: address.city,
-            street: address.street,
-            postalCode: address.postalCode,
-            fullAddress: `${address.street}, ${address.city}, ${address.country}, ${address.postalCode}`.trim()
-          },
           items: selectedCargo.localItems.map((i: any) => ({
             productId: i.productId,
             quantity: i.quantity,
@@ -121,16 +114,17 @@ export default function CargoFinancialLedger({
         method: "POST",
         body: JSON.stringify({ 
           allocationId: targetAllocationId,
-          allocationIds: targetAllocationIds, // Included for backwards compatibility support
+          // Included for backwards compatibility support
           tariffRateBps: ESTIMATED_TARIFF_BPS,
           customsFeeMinor: ESTIMATED_CUSTOMS_FEE * 100, 
           vatRateBps: ESTIMATED_VAT_BPS,
           deliveryAddress: {
             country: address.country,
             city: address.city,
-            postal_code: address.postalCode,
-            street: address.street
-          }
+            street: address.street,
+            postalCode: address.postalCode,
+            fullAddress: `${address.street}, ${address.city}, ${address.country}, ${address.postalCode}`.trim()
+          },
         }),
       });
       
