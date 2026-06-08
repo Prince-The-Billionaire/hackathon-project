@@ -2,7 +2,7 @@
 
 import React, { useRef, useEffect, useState } from "react";
 import { Send, Sparkles, X, FileText, Landmark, ShieldCheck, ArrowRight, Layers, RefreshCw } from "lucide-react";
-import { useAuth } from "@clerk/nextjs";
+import { useAuth, useUser } from "@clerk/nextjs";
 
 interface NegotiationChatModalProps {
   conversationId: string; // Pass "new" or a blank string if starting a chat from scratch
@@ -25,6 +25,7 @@ export default function NegotiationChatModal({
 }: NegotiationChatModalProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const { getToken } = useAuth();
+  const { user } = useUser();
   const backendUrl = process.env.NEXT_PUBLIC_API_URL || "https://zeon-backend.onrender.com";
 
   const [activeConversationId, setActiveConversationId] = useState<string>(initialConversationId);
@@ -43,7 +44,6 @@ export default function NegotiationChatModal({
   const isNewThread = !activeConversationId || activeConversationId === "" || activeConversationId === "new";
 
   // Sync / Fetch Conversation Log From Backend
-  // Fixed dependency system: Removed static boolean check from locking updates
   const fetchChannelMessages = React.useCallback(async (targetId?: string) => {
     const idToFetch = targetId || activeConversationId;
     if (!idToFetch || idToFetch === "" || idToFetch === "new") return; 
@@ -105,7 +105,6 @@ export default function NegotiationChatModal({
       let payloadBody: Record<string, any> = {};
 
       if (isNewThread) {
-        // STRICT ALIGNMENT WITH POST /api/messaging/conversations
         targetUrl = `${backendUrl}api/messaging/conversations`;
         payloadBody = {
           storeId: merchant.id, 
@@ -116,7 +115,6 @@ export default function NegotiationChatModal({
           payloadBody.productId = productId;
         }
       } else {
-        // STRICT ALIGNMENT WITH POST /api/messaging/conversations/:id/messages
         targetUrl = `${backendUrl}api/messaging/conversations/${activeConversationId}/messages`;
         payloadBody = {
           body: String(rawBody)
@@ -139,7 +137,6 @@ export default function NegotiationChatModal({
         if (isNewThread && payload.data?.id) {
           const allocatedId = payload.data.id;
           
-          // CRITICAL FIX: Update state AND pass target ID directly to fetch payload instantly 
           setActiveConversationId(allocatedId);
           if (onConversationCreated) onConversationCreated(allocatedId);
           
@@ -256,20 +253,42 @@ export default function NegotiationChatModal({
 
                 const isMe = msg.senderType === "USER";
                 const displayTime = msg.sentAt ? new Date(msg.sentAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
+                
+                // Extract profile images safely from backend message context or standard clerk session hook
+                const merchantImageUrl = msg.senderUser?.profileImageUrl;
+                const userImageUrl = user?.imageUrl;
 
                 return (
-                  <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+                  <div key={msg.id} className={`flex items-start ${isMe ? "justify-end" : "justify-start"}`}>
+                    {/* Merchant Avatar Node */}
                     {!isMe && (
-                      <div className="w-7 h-7 bg-indigo-100 rounded-lg flex items-center justify-center font-bold text-[11px] text-indigo-700 mr-2 mt-0.5 shadow-sm uppercase shrink-0">
-                        {merchant.name?.charAt(0)}
+                      <div className="w-7 h-7 bg-indigo-100 rounded-lg overflow-hidden flex items-center justify-center font-bold text-[11px] text-indigo-700 mr-2 mt-0.5 shadow-sm uppercase shrink-0">
+                        {merchantImageUrl ? (
+                          <img src={merchantImageUrl} alt={merchant.name} className="w-full h-full object-cover" />
+                        ) : (
+                          merchant.name?.charAt(0)
+                        )}
                       </div>
                     )}
+
+                    {/* Message Bubble */}
                     <div className={`max-w-[78%] px-4 py-2.5 rounded-2xl text-xs leading-relaxed shadow-xs break-words
                       ${isMe ? "bg-slate-900 text-white rounded-tr-none font-medium" : "bg-white border border-slate-100 text-slate-800 rounded-tl-none"}`}
                     >
                       <p className="whitespace-pre-wrap">{msg.body}</p>
                       <div className="text-[9px] text-right mt-1 font-medium text-slate-400">{displayTime}</div>
                     </div>
+
+                    {/* User Avatar Node */}
+                    {isMe && (
+                      <div className="w-7 h-7 bg-slate-200 rounded-lg overflow-hidden flex items-center justify-center font-bold text-[11px] text-slate-700 ml-2 mt-0.5 shadow-sm uppercase shrink-0">
+                        {userImageUrl ? (
+                          <img src={userImageUrl} alt="User Profile" className="w-full h-full object-cover" />
+                        ) : (
+                          user?.firstName?.charAt(0) || "U"
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })
