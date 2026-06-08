@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { CreditCard, MapPin, ArrowRight, Loader2, FileCheck, MessageSquareOff, MessageSquare } from "lucide-react";
+import { CreditCard, MapPin, ArrowRight, Loader2, FileCheck, MessageSquare } from "lucide-react";
 import toast from "react-hot-toast";
 import { createApiClient } from "../utils/api";
 import { useAuth } from "@clerk/nextjs";
@@ -25,13 +25,12 @@ export default function CargoFinancialLedger({
   const [actionLoading, setActionLoading] = useState(false);
   const { getToken } = useAuth();
 
-  // Unified Address Form Fields State matching your structure
+  // Pure data tracking state block reflecting exact payload schemas
   const [address, setAddress] = useState({
     country: "Nigeria",
     city: "",
     street: "",
     postalCode: "",
-    fullAddress: ""
   });
 
   const ESTIMATED_TARIFF_BPS = 500;
@@ -52,17 +51,11 @@ export default function CargoFinancialLedger({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setAddress(prev => {
-      const stateUpdate = { ...prev, [name]: value };
-      if (name !== 'fullAddress') {
-        stateUpdate.fullAddress = `${stateUpdate.street}, ${stateUpdate.city}, ${stateUpdate.postalCode}, ${stateUpdate.country}`.trim().replace(/^,\s*/, '');
-      }
-      return stateUpdate;
-    });
+    setAddress(prev => ({ ...prev, [name]: value }));
   };
 
   const validateDeliveryCoordinates = () => {
-    if (!address.city.trim() || !address.street.trim() || !address.postalCode.trim()) {
+    if (!address.country.trim() || !address.city.trim() || !address.street.trim() || !address.postalCode.trim()) {
       toast.error("Please supply complete delivery address details before building parameters.");
       return false;
     }
@@ -78,7 +71,7 @@ export default function CargoFinancialLedger({
       const api = await createApiClient(getToken);
       toast.loading("Compiling consolidated custom landed cost parameters...", { id: "workflow" });
       
-      // Sending payload batch bundle array and localized address information context object maps
+      // Sending payload batch bundle array and structured localized address properties
       await api("api/cargo/allocation/checkout", {
         method: "POST",
         body: JSON.stringify({ 
@@ -89,9 +82,8 @@ export default function CargoFinancialLedger({
           deliveryAddress: {
             country: address.country,
             city: address.city,
-            street: address.street,
             postal_code: address.postalCode,
-            fullAddress: address.fullAddress
+            street: address.street
           }
         }),
       });
@@ -113,7 +105,6 @@ export default function CargoFinancialLedger({
       const api = await createApiClient(getToken);
       toast.loading("Acquiring secure gateway access tokens...", { id: "workflow" });
 
-      // Run routing checks directly from tracking anchor index reference arrays
       const rootId = selectedCargo.allocationIds[0];
       const confirmData = await api(`api/cargo/allocation/${rootId}/confirm`, { method: "POST" });
       const url = confirmData?.checkoutUrl || confirmData?.data?.checkoutUrl;
@@ -146,7 +137,6 @@ export default function CargoFinancialLedger({
       const conversationId = payload?.id || payload?.data?.id;
       if (!conversationId) throw new Error("Could not construct or fetch dialog link mapping.");
 
-      // Post an automatic message inside the conversation thread context to state negotiation intent
       await api(`api/messaging/conversations/${conversationId}/messages`, {
         method: "POST",
         body: JSON.stringify({ 
