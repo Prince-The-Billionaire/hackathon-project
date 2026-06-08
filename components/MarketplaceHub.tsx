@@ -7,6 +7,7 @@ import FactoryCard from "@/components/FactoryCard";
 import toast, { Toaster } from "react-hot-toast";
 import { useAuth } from "@clerk/nextjs";
 import { createApiClient } from "@/utils/api"; // Ensure this matches your pathing structure
+import { FaNairaSign } from "react-icons/fa6";
 
 interface MarketplaceHubProps {
   stores: any[];
@@ -161,7 +162,7 @@ export default function MarketplaceHub({ stores }: MarketplaceHubProps) {
 
   return (
     <div className="w-full space-y-6 px-4 md:px-6 max-w-7xl mx-auto py-4">
-      <Toaster position="top-right" reverseOrder={false} />
+      {/* <Toaster position="top-right" reverseOrder={false} /> */}
 
       <div className="flex flex-col gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200/80 lg:flex-row lg:items-center justify-between">
         <div className="relative flex-1">
@@ -276,8 +277,8 @@ export default function MarketplaceHub({ stores }: MarketplaceHubProps) {
                               <h6 className="font-bold text-slate-900 text-sm truncate">{item.name}</h6>
                               <div className="flex items-center gap-2.5 flex-wrap text-[11px]">
                                 <div className="flex items-center font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-md">
-                                  <DollarSign className="h-3 w-3 -mr-0.5 shrink-0" />
-                                  <span>{formatMinorValue(item.priceAmountMinor, "")}</span>
+                                  <FaNairaSign className="h-3 w-3 -mr-0.5 shrink-0" />
+                                  <span>{formatMinorValue(Number(item.priceAmountMinor) / 100, "")}</span>
                                 </div>
                                 <span className="text-slate-400 font-medium">
                                   MOQ Requirement: <span className="text-slate-700 font-semibold">{currentMoq} {item.moqUnit || "UNIT"}</span>
