@@ -80,6 +80,13 @@ export default function CargoFinancialLedger({
         const createPayload = {
           storeId: selectedCargo.storeId,
           currencyCode: selectedCargo.currencyCode,
+          deliveryAddress: {
+            country: address.country,
+            city: address.city,
+            street: address.street,
+            postal_code: address.postalCode,
+            fullAddress: `${address.street}, ${address.city}, ${address.country}, ${address.postalCode}`.trim()
+          },
           items: selectedCargo.localItems.map((i: any) => ({
             productId: i.productId,
             quantity: i.quantity,
