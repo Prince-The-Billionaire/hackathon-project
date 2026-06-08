@@ -6,7 +6,7 @@ import { useCartStore } from "@/store/useCartStore";
 import FactoryCard from "@/components/FactoryCard";
 import toast, { Toaster } from "react-hot-toast";
 import { useAuth } from "@clerk/nextjs";
-import { createApiClient } from "@/utils/api"; // Ensure this matches your pathing structure
+import { createApiClient } from "@/utils/api";
 import { FaNairaSign } from "react-icons/fa6";
 
 interface MarketplaceHubProps {
@@ -89,7 +89,6 @@ export default function MarketplaceHub({ stores }: MarketplaceHubProps) {
     return `${currency}${value.toLocaleString()}`;
   };
 
-  // NEW: Directly handle the backend API integration for creating Draft Cargo Allocations
   const handleAddCargoSubmit = async (item: any) => {
     if (addingProductId) return;
     
@@ -99,25 +98,42 @@ export default function MarketplaceHub({ stores }: MarketplaceHubProps) {
     try {
       setAddingProductId(item.id);
       
-      // Initialize authenticated Express API Client instance
-      const api = await createApiClient(getToken);
-      
-      // Match backend payload specification: POST /api/cargo/allocation
-      const payload = {
-        storeId: selectedStore.id,
-        items: [
-          {
-            productId: item.id,
-            quantity: itemQuantity,
-            quantityUnit: item.pricingUnit || "UNIT"
-          }
-        ]
+      // Fetch current local cart
+      const existingCartStr = localStorage.getItem('zeon_local_cargo');
+      let localCart = existingCartStr ? JSON.parse(existingCartStr) : {};
+
+      // Initialize store array if not present
+      if (!localCart[selectedStore.id]) {
+        localCart[selectedStore.id] = {
+          storeId: selectedStore.id,
+          storeName: selectedStore.name,
+          currencyCode: selectedStore.currencyCode || "NGN",
+          items: []
+        };
+      }
+
+      // Format payload for the local matrix
+      const localItem = {
+        productId: item.id,
+        name: item.name,
+        quantity: itemQuantity,
+        quantityUnit: item.pricingUnit || "UNIT",
+        priceAmountMinor: Number(item.priceAmountMinor) || 0,
+        imageUrl: item.imageUrl || ""
       };
 
-      await api("api/cargo/allocation", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
+      // Check if product already exists to increment quantity or push new
+      const storeItems = localCart[selectedStore.id].items;
+      const existingItemIndex = storeItems.findIndex((i: any) => i.productId === item.id);
+      
+      if (existingItemIndex >= 0) {
+        storeItems[existingItemIndex].quantity += itemQuantity;
+      } else {
+        storeItems.push(localItem);
+      }
+
+      // Save back to local storage
+      localStorage.setItem('zeon_local_cargo', JSON.stringify(localCart));
 
       // Synchronize frontend layout fallback state manager
       if (typeof syncAddToCargoLocal === "function") {
@@ -137,7 +153,7 @@ export default function MarketplaceHub({ stores }: MarketplaceHubProps) {
         <div className="flex flex-col gap-0.5 text-left">
           <p className="text-xs font-bold text-slate-900">Cargo Staged on Dashboard</p>
           <p className="text-[10px] text-slate-400 font-medium max-w-[200px] truncate">
-            {itemQuantity}x {item.name} indexed as DRAFT pipeline allocation.
+            {itemQuantity}x {item.name} indexed locally as DRAFT.
           </p>
         </div>,
         {
@@ -153,8 +169,8 @@ export default function MarketplaceHub({ stores }: MarketplaceHubProps) {
       );
 
     } catch (err: any) {
-      console.error("Backend Cargo Draft synchronization failed:", err);
-      toast.error(err.message || "Failed to commit allocation matrix to logistics stream.");
+      console.error("Local Cargo Draft synchronization failed:", err);
+      toast.error(err.message || "Failed to commit allocation matrix locally.");
     } finally {
       setAddingProductId(null);
     }

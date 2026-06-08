@@ -69,13 +69,52 @@ export default function CargoFinancialLedger({
     try {
       setActionLoading(true);
       const api = await createApiClient(getToken);
+      
+      let targetAllocationIds = selectedCargo.allocationIds;
+      let targetAllocationId = selectedCargo.allocationIds[0];
+
+      // Step 1: Handle Local Draft Commit
+      if (selectedCargo.isLocalDraft && selectedCargo.localItems) {
+        toast.loading("Committing local matrix to logistics stream...", { id: "workflow" });
+        
+        const createPayload = {
+          storeId: selectedCargo.storeId,
+          currencyCode: selectedCargo.currencyCode,
+          items: selectedCargo.localItems.map((i: any) => ({
+            productId: i.productId,
+            quantity: i.quantity,
+            quantityUnit: i.quantityUnit
+          }))
+        };
+
+        const createdData: any = await api("api/cargo/allocation", {
+          method: "POST",
+          body: JSON.stringify(createPayload)
+        });
+
+        const newAllocId = createdData?.id || createdData?.data?.id;
+        if (!newAllocId) throw new Error("Backend failed to return an allocation index.");
+
+        targetAllocationIds = [newAllocId];
+        targetAllocationId = newAllocId;
+
+        // Clear local storage for this particular store block
+        const localDataStr = localStorage.getItem('zeon_local_cargo');
+        if (localDataStr) {
+          const localData = JSON.parse(localDataStr);
+          delete localData[selectedCargo.storeId];
+          localStorage.setItem('zeon_local_cargo', JSON.stringify(localData));
+        }
+      }
+
+      // Step 2: Proceed with Checkout Compilation
       toast.loading("Compiling consolidated custom landed cost parameters...", { id: "workflow" });
       
-      // Sending payload batch bundle array and structured localized address properties
       await api("api/cargo/allocation/checkout", {
         method: "POST",
         body: JSON.stringify({ 
-          allocationIds: selectedCargo.allocationIds,
+          allocationId: targetAllocationId,
+          allocationIds: targetAllocationIds, // Included for backwards compatibility support
           tariffRateBps: ESTIMATED_TARIFF_BPS,
           customsFeeMinor: ESTIMATED_CUSTOMS_FEE * 100, 
           vatRateBps: ESTIMATED_VAT_BPS,

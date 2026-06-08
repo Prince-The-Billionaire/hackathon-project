@@ -25,6 +25,8 @@ export interface CargoGroup {
   quantity: number;
   allocationIds: string[];
   hasFinancials: boolean;
+  isLocalDraft?: boolean;
+  localItems?: any[];
   financials: {
     itemCost: number;
     tariffAmount: number;
@@ -36,6 +38,7 @@ export interface CargoGroup {
 
 export default function CargoTrackingPage() {
   const [allocations, setAllocations] = useState<any[]>([]);
+  const [localDrafts, setLocalDrafts] = useState<any>({});
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
@@ -69,6 +72,13 @@ export default function CargoTrackingPage() {
       console.error("Cargo tracking synchronizer failure:", err);
       setError(err.message || "Failed to index active cargo allocations from the cluster database.");
     } finally {
+      // Sync local drafts from storage
+      const localDataStr = localStorage.getItem('zeon_local_cargo');
+      if (localDataStr) {
+        setLocalDrafts(JSON.parse(localDataStr));
+      } else {
+        setLocalDrafts({});
+      }
       setLoading(false);
     }
   };
@@ -79,15 +89,17 @@ export default function CargoTrackingPage() {
 
   // Structural dynamic matching of allocations sharing corresponding store keys
   const groupedCargoPool = useMemo(() => {
+    const finalGroups: CargoGroup[] = [];
     const groups: { [key: string]: any[] } = {};
     
+    // 1. Group Backend Allocations
     allocations.forEach((alloc) => {
       const storeId = alloc.store?.id || "unknown-store";
       if (!groups[storeId]) groups[storeId] = [];
       groups[storeId].push(alloc);
     });
 
-    return Object.keys(groups).map((storeId) => {
+    Object.keys(groups).forEach((storeId) => {
       const storeItems = groups[storeId];
       const primaryAlloc = storeItems[0];
       const storeName = primaryAlloc.store?.name || "Marketplace Source Store";
@@ -128,21 +140,21 @@ export default function CargoTrackingPage() {
       const primaryProduct = primaryAlloc.items?.[0]?.product?.name || "Marketplace Cargo Pool";
       const itemDisplayName = totalItemCount > 1 ? `${primaryProduct} (+${totalItemCount - 1} entries)` : primaryProduct;
 
-      return {
+      finalGroups.push({
         id: storeId,
         storeId,
         storeName,
-        direction: "Import" as const,
+        direction: "Import",
         itemName: itemDisplayName,
         origin: storeName,
         destination: "Lagos Hub Node (NG)",
         status: compoundStatus,
-        carrier: "Pending Port Assignment",
         eta: hasFinancials ? "Calculated" : "Awaiting Audit",
         currencyCode: primaryAlloc.currencyCode || "NGN",
         quantity: totalItemCount,
         allocationIds,
         hasFinancials,
+        isLocalDraft: false,
         financials: {
           itemCost: draftBaseCost,
           tariffAmount: aggregatedTariff,
@@ -150,9 +162,53 @@ export default function CargoTrackingPage() {
           vatAmount: aggregatedVat,
           totalLandedCost: hasFinancials ? aggregatedTotalLanded : draftBaseCost
         }
-      };
+      });
     });
-  }, [allocations]);
+
+    // 2. Append Frontend Local Drafts
+    Object.keys(localDrafts).forEach((storeId) => {
+      const localStore = localDrafts[storeId];
+      if (!localStore || !localStore.items || localStore.items.length === 0) return;
+
+      const draftId = `local_${storeId}`;
+      let draftBaseCost = 0;
+      
+      localStore.items.forEach((item: any) => {
+        draftBaseCost += (Number(item.priceAmountMinor) / 100) * Number(item.quantity);
+      });
+
+      const totalItemCount = localStore.items.length;
+      const primaryProduct = localStore.items[0]?.name || "Marketplace Cargo Pool";
+      const itemDisplayName = totalItemCount > 1 ? `${primaryProduct} (+${totalItemCount - 1} entries)` : primaryProduct;
+
+      finalGroups.push({
+        id: draftId,
+        storeId: localStore.storeId,
+        storeName: localStore.storeName,
+        direction: "Import",
+        itemName: itemDisplayName,
+        origin: localStore.storeName,
+        destination: "Lagos Hub Node (NG)",
+        status: "DRAFT",
+        eta: "Awaiting Audit",
+        currencyCode: localStore.currencyCode || "NGN",
+        quantity: totalItemCount,
+        allocationIds: [draftId],
+        hasFinancials: false,
+        isLocalDraft: true,
+        localItems: localStore.items,
+        financials: {
+          itemCost: draftBaseCost,
+          tariffAmount: 0,
+          customsFees: 0,
+          vatAmount: 0,
+          totalLandedCost: draftBaseCost
+        }
+      });
+    });
+
+    return finalGroups;
+  }, [allocations, localDrafts]);
 
   // Handle setting active choices cleanly across array mutations
   const selectedCargo = useMemo(() => {
@@ -169,6 +225,16 @@ export default function CargoTrackingPage() {
       currency: code,
       maximumFractionDigits: 0,
     }).format(value);
+  };
+
+  const handlePurgeLocal = (storeId: string) => {
+    const localDataStr = localStorage.getItem('zeon_local_cargo');
+    if (localDataStr) {
+      const localData = JSON.parse(localDataStr);
+      delete localData[storeId];
+      localStorage.setItem('zeon_local_cargo', JSON.stringify(localData));
+      fetchAllocations(true);
+    }
   };
 
   return (
@@ -236,19 +302,21 @@ export default function CargoTrackingPage() {
                     <CargoMiniCard
                       key={group.id}
                       cargo={{
-                        id: `STORE-POOL-${group.storeId.slice(0, 6).toUpperCase()}`,
+                        id: group.isLocalDraft ? "LOCAL-DRAFT-POOL" : `STORE-POOL-${group.storeId.slice(0, 6).toUpperCase()}`,
                         direction: group.direction,
                         itemName: group.itemName,
                         origin: group.storeName,
                         destination: group.destination,
                         status: group.status,
                         eta: group.eta,
-                        quantity: group.quantity
+                        quantity: group.quantity,
+                        isLocalDraft: group.isLocalDraft
                       }}
                       allocationIds={group.allocationIds}
                       isSelected={selectedCargo?.id === group.id}
                       onClick={() => setSelectedGroupId(group.id)}
                       onRefreshNeeded={() => fetchAllocations(true)}
+                      onPurgeLocal={() => handlePurgeLocal(group.storeId)}
                     />
                   ))
                 )}

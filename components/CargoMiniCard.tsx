@@ -16,14 +16,16 @@ interface CargoMiniCardProps {
     status: string;
     eta: string;
     quantity: number;
+    isLocalDraft?: boolean;
   };
   allocationIds: string[];
   isSelected: boolean;
   onClick: () => void;
   onRefreshNeeded: () => void;
+  onPurgeLocal?: () => void;
 }
 
-export default function CargoMiniCard({ cargo, allocationIds, isSelected, onClick, onRefreshNeeded }: CargoMiniCardProps) {
+export default function CargoMiniCard({ cargo, allocationIds, isSelected, onClick, onRefreshNeeded, onPurgeLocal }: CargoMiniCardProps) {
   const { getToken } = useAuth();
   const [loading, setLoading] = useState(false);
 
@@ -44,6 +46,12 @@ export default function CargoMiniCard({ cargo, allocationIds, isSelected, onClic
   const handleBatchPurgeSequence = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!confirm("Remove this complete consolidated store cargo bundle from active pipelines?")) return;
+
+    if (cargo.isLocalDraft && onPurgeLocal) {
+      onPurgeLocal();
+      toast.success("Local consolidated cargo draft cleared.");
+      return;
+    }
 
     try {
       setLoading(true);
