@@ -26,7 +26,7 @@ export default function CargoFinancialLedger({
   const [readyToConfirm, setReadyToConfirm] = useState(false)
   const { getToken } = useAuth();
 
-  // Pure data tracking state block reflecting exact payload schemas
+  // Pure data tracking state block reflecting exact payload schemas  dh
   const [address, setAddress] = useState({
     country: "Nigeria",
     city: "",
