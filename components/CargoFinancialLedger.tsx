@@ -84,7 +84,7 @@ export default function CargoFinancialLedger({
             country: address.country,
             city: address.city,
             street: address.street,
-            postal_code: address.postalCode,
+            postalCode: address.postalCode,
             fullAddress: `${address.street}, ${address.city}, ${address.country}, ${address.postalCode}`.trim()
           },
           items: selectedCargo.localItems.map((i: any) => ({
